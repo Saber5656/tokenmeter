@@ -136,7 +136,7 @@ interface UsageEvent {
 注意点（実ログ確認より）:
 
 - Claude Code は assistant メッセージごとに `message.usage` を持つ（差分値）。`server_tool_use` 等の追加フィールドは v1 では無視
-- Codex の `total_token_usage` は**累積値**の可能性が高い。イベント間の差分化を adapter 内で行い、`reasoning_output_tokens` は outputTokens に含まれるかを Spike（Issue #1）で確定する
+- Codex の `total_token_usage` は**累積値**の可能性が高い。イベント間の差分化を adapter 内で行い、`reasoning_output_tokens` は outputTokens に含まれるかを Spike（Issue #3）で確定する
 
 ### 5.3 ContextSnapshot（lens / viz 用）
 
@@ -216,7 +216,7 @@ $ tokenmeter lens --session <id> / --project <slug>
 
 | 手段 | 内容 |
 |---|---|
-| npm | `npx tokenmeter` / `npm i -g tokenmeter`。npm パッケージ名の空きは実装着手時に確認（Issue #2 受け入れ条件） |
+| npm | `npx tokenmeter` / `npm i -g tokenmeter`。npm パッケージ名の空きは実装着手時に確認（Issue #4 受け入れ条件） |
 | GitHub Releases | tag push で CI が publish。CHANGELOG 自動生成 |
 | Homebrew | v2 検討（npx で十分軽いため） |
 
@@ -244,7 +244,7 @@ Local-first token & context observability for AI agents.
 
 | 優先度 | リスク | 検証・対処 |
 |---|---|---|
-| P0 | Codex `total_token_usage` の意味論（累積か差分か、`reasoning_output_tokens` の重複計上） | Spike Issue #1 で実ログ複数本から確定。**存在確認は済み**（下記 evidence） |
+| P0 | Codex `total_token_usage` の意味論（累積か差分か、`reasoning_output_tokens` の重複計上） | Spike Issue #3 で実ログ複数本から確定。**存在確認は済み**（下記 evidence） |
 | P0 | Codex ログからの model 名取得可否 | 同上。取れない場合は session メタ or config 既定値でフォールバック |
 | P1 | ブロック按分近似の誤差が lens の説得力を損なう | 「実測合計は正確・内訳は近似」を UI に常時明示。ターン合計と実測の突合テスト |
 | P1 | 料金表の陳腐化（新モデル追従） | LiteLLM 互換の外部差し替え口 + 単価不明モデルは「未計上」を明示（黙って $0 にしない） |
@@ -258,51 +258,51 @@ Local-first token & context observability for AI agents.
 
 ---
 
-## 10. v1 Issue 分割案（10 個）
+## 10. v1 Issue 分割案（10 個 / 実 Issue #3–#12）
 
-マイルストーン: **M0 コア（#1–#6）→ M1 meter/hp（#7–#8）→ M2 lens（#9）→ M3 viz（#10）**。§2 の段階リリース方針に対応する。
+マイルストーン: **M0 コア（#3–#8）→ M1 meter/hp（#9–#10）→ M2 lens（#11）→ M3 viz（#12）**。§2 の段階リリース方針に対応する。
 
-- **#1 `Spike: confirm usage semantics in Claude Code and Codex session logs`** — ラベル: `spike`, `design`
+- **#3 `Spike: confirm usage semantics in Claude Code and Codex session logs`** — ラベル: `spike`, `design`
   実ログ複数本から、Claude Code の usage（差分値・model 名・compact イベントの形）と Codex の `total_token_usage`（累積/差分、reasoning の重複、model 名の所在）を確定し、UsageEvent スキーマを最終化する。
   受け入れ条件: フィールド対応表と差分化ルールを Issue コメントに記録し、fixture 用サンプルログ（マスク済み）を `test/fixtures/` に追加。
 
-- **#2 `Set up CLI scaffold, config loading, and npm packaging`** — ラベル: `infra`
+- **#4 `Set up CLI scaffold, config loading, and npm packaging`** — ラベル: `infra`
   TypeScript + commander + tsup + vitest の雛形、`~/.tokenmeter/config.json` の読み書き、CI（lint + test）、npm パッケージ名の確保。
   受け入れ条件: `npx tokenmeter --help` がローカル pack から動作し、CI が緑、パッケージ名が確保済み。
 
-- **#3 `Implement usage event store with incremental scan cursors`** — ラベル: `enhancement`
+- **#5 `Implement usage event store with incremental scan cursors`** — ラベル: `enhancement`
   append-only JSONL ストアと adapter ごとの cursor（mtime/size/offset）。再実行の冪等性を保証する。
   受け入れ条件: 同一ログへの再 scan でイベントが重複しない。10 万イベント再集計 < 2s のベンチを test に含む。
 
-- **#4 `Implement Claude Code adapter`** — ラベル: `enhancement`
+- **#6 `Implement Claude Code adapter`** — ラベル: `enhancement`
   `~/.claude/projects/**/*.jsonl` から UsageEvent への変換。project slug / session / model の抽出を含む。
   受け入れ条件: fixture 入力で期待イベント列に一致。壊れた行・未知フィールドをスキップしても総和が安定。
 
-- **#5 `Implement Codex adapter`** — ラベル: `enhancement`
-  `~/.codex/sessions/**/rollout-*.jsonl` から UsageEvent への変換。#1 で確定した差分化ルールを実装する。
+- **#7 `Implement Codex adapter`** — ラベル: `enhancement`
+  `~/.codex/sessions/**/rollout-*.jsonl` から UsageEvent への変換。#3 で確定した差分化ルールを実装する。
   受け入れ条件: fixture 入力で期待イベント列に一致し、累積→差分変換のテストがある。
 
-- **#6 `Add pricing table and cost calculation`** — ラベル: `enhancement`
+- **#8 `Add pricing table and cost calculation`** — ラベル: `enhancement`
   同梱 `pricing.json`（cache read/write 単価と context window limit を含む）、`--pricing` での LiteLLM 互換差し替え、単価不明モデルの「未計上」扱い。
   受け入れ条件: 既知モデルのコストが手計算と一致し、未知モデルが $0 ではなく「uncosted」として表示される。
 
-- **#7 `Implement meter view with budgets and alert exit codes`** — ラベル: `enhancement`
+- **#9 `Implement meter view with budgets and alert exit codes`** — ラベル: `enhancement`
   デフォルト集計（today）、`--week/--month/--by agent|model`、`--json`、`--budget-status`（超過で exit 2）。
   受け入れ条件: fixture ストアに対する表出力のスナップショットテスト。予算超過時の exit code をテスト。
 
-- **#8 `Implement hp gauge with watch mode and statusline output`** — ラベル: `enhancement`, `ux`
+- **#10 `Implement hp gauge with watch mode and statusline output`** — ラベル: `enhancement`, `ux`
   HP バー描画（色遷移・しきい値警告）、`--watch`（ファイル監視 + ダメージポップ演出）、`--statusline`（装飾なし 1 行）。
   受け入れ条件: 残量 100/60/20% でバーと色が仕様どおり変わり、`--statusline` 出力が 1 行・ANSI なしで Claude Code statusline に貼れる。
 
-- **#9 `Implement lens breakdown and reduction suggestions`** — ラベル: `enhancement`
+- **#11 `Implement lens breakdown and reduction suggestions`** — ラベル: `enhancement`
   ブロック按分近似（§5.3）、内訳バー、Top N 消費源、ヒューリスティック削減提案 3 種以上。
   受け入れ条件: 按分合計が実測ターン合計と一致（±0 保証）。fixture セッションに対する提案のスナップショットテスト。「内訳は近似」の注記が出力に含まれる。
 
-- **#10 `Implement viz TUI for live context window observation`** — ラベル: `enhancement`, `ux`
+- **#12 `Implement viz TUI for live context window observation`** — ラベル: `enhancement`, `ux`
   積み上げバー + ブロックリストの TUI、ファイル監視による更新、limit 接近警告、compact/eviction の検知表示（観測できる範囲に限定）。
   受け入れ条件: 進行中セッションを開いて 1 ターン進めるとバーが更新される。limit の 90% 超で警告表示。観測不能ケースで誇張表示しない。
 
-推奨着手順: **#1 → #2 → (#3, #6 並行) → #4 → #5 → #7 → #8 → #9 → #10**。#8（hp）完了時点で最初のリリース（v0.1）を切る。
+推奨着手順: **#3 → #4 → (#5, #8 並行) → #6 → #7 → #9 → #10 → #11 → #12**。#10（hp）完了時点で最初のリリース（v0.1）を切る。
 
 ---
 
