@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "reasoningIsIncludedInOutput": true,
+  "inputExcludesCacheRead": true,
+  "cases": [
+    {
+      "fixture": "cumulative.jsonl",
+      "events": [
+        {
+          "ts": "2000-01-01T01:00:02.000Z",
+          "agent": "codex",
+          "model": "gpt-synthetic-a",
+          "sessionId": "session-codex-a",
+          "inputTokens": 60,
+          "outputTokens": 20,
+          "cacheReadTokens": 40,
+          "cacheWriteTokens": 0
+        },
+        {
+          "ts": "2000-01-01T01:00:05.000Z",
+          "agent": "codex",
+          "model": "gpt-synthetic-a",
+          "sessionId": "session-codex-a",
+          "inputTokens": 36,
+          "outputTokens": 15,
+          "cacheReadTokens": 24,
+          "cacheWriteTokens": 0
+        },
+        {
+          "ts": "2000-01-01T01:00:08.000Z",
+          "agent": "codex",
+          "model": "gpt-synthetic-b",
+          "sessionId": "session-codex-a",
+          "inputTokens": 44,
+          "outputTokens": 10,
+          "cacheReadTokens": 16,
+          "cacheWriteTokens": 0
+        }
+      ],
+      "rawReasoningDeltas": [10, 7, 3],
+      "ignored": {
+        "componentDuplicateSnapshots": 1,
+        "invalidJsonRows": 1,
+        "invalidDeltas": 1,
+        "unknownEventRows": 1,
+        "unknownFieldNames": ["future_field"]
+      }
+    },
+    {
+      "fixture": "resume.jsonl",
+      "events": [
+        {
+          "ts": "2000-01-01T01:10:02.000Z",
+          "agent": "codex",
+          "model": "gpt-synthetic-b",
+          "sessionId": "session-codex-a",
+          "inputTokens": 20,
+          "outputTokens": 5,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 0
+        }
+      ],
+      "rawReasoningDeltas": [2],
+      "transitionDecisions": ["resumed-session-component-delta"],
+      "ignored": {}
+    },
+    {
+      "fixture": "reset.jsonl",
+      "events": [
+        {
+          "ts": "2000-01-01T02:00:02.000Z",
+          "agent": "codex",
+          "model": null,
+          "sessionId": "session-codex-b",
+          "inputTokens": 20,
+          "outputTokens": 5,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 0
+        },
+        {
+          "ts": "2000-01-01T02:00:05.000Z",
+          "agent": "codex",
+          "model": null,
+          "sessionId": "session-codex-b",
+          "inputTokens": 12,
+          "outputTokens": 3,
+          "cacheReadTokens": 8,
+          "cacheWriteTokens": 0
+        },
+        {
+          "ts": "2000-01-01T02:00:08.000Z",
+          "agent": "codex",
+          "model": null,
+          "sessionId": "session-codex-b",
+          "inputTokens": 4,
+          "outputTokens": 2,
+          "cacheReadTokens": 1,
+          "cacheWriteTokens": 0
+        }
+      ],
+      "rawReasoningDeltas": [2, 1, 1],
+      "sameSessionMetadataKeepsBaseline": true,
+      "transitionDecisions": [
+        "first-zero-baseline-no-emit",
+        "component-delta",
+        "component-decrease-rebase-no-emit",
+        "zero-reset-rebase-no-emit",
+        "component-delta",
+        "decrease-without-last-rebase-no-emit",
+        "invalid-snapshot-baseline-unchanged",
+        "component-delta"
+      ],
+      "ignored": {
+        "allZeroSnapshots": 1,
+        "componentDecreaseRebases": 3,
+        "invalidSnapshots": 1
+      }
+    }
+  ]
+}

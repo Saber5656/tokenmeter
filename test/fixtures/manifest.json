@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "construction": "allowlist-reconstruction",
+  "sourcePolicy": "No raw log line or masked derivative is permitted.",
+  "files": [
+    "claude-code/streaming.jsonl",
+    "claude-code/malformed.jsonl",
+    "claude-code/pending-continuation.jsonl",
+    "claude-code/expected.json",
+    "codex-cli/cumulative.jsonl",
+    "codex-cli/resume.jsonl",
+    "codex-cli/reset.jsonl",
+    "codex-cli/expected.json"
+  ],
+  "jsonlAllowedFields": [
+    "type",
+    "timestamp",
+    "sessionId",
+    "requestId",
+    "agentId",
+    "isSidechain",
+    "message",
+    "id",
+    "model",
+    "role",
+    "stop_reason",
+    "usage",
+    "input_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "cached_input_tokens",
+    "output_tokens",
+    "reasoning_output_tokens",
+    "total_tokens",
+    "future_usage_detail",
+    "payload",
+    "cli_version",
+    "model_provider",
+    "info",
+    "total_token_usage",
+    "last_token_usage",
+    "future_field",
+    "synthetic"
+  ],
+  "expectedAllowedFields": {
+    "root": [
+      "schemaVersion",
+      "synthetic",
+      "reasoningIsIncludedInOutput",
+      "inputExcludesCacheRead",
+      "cases"
+    ],
+    "case": [
+      "fixture",
+      "sourceFixture",
+      "resolvedPendingGroups",
+      "events",
+      "rawReasoningDeltas",
+      "sameSessionMetadataKeepsBaseline",
+      "transitionDecisions",
+      "ignored",
+      "pending"
+    ],
+    "event": [
+      "ts",
+      "agent",
+      "model",
+      "sessionId",
+      "inputTokens",
+      "outputTokens",
+      "cacheReadTokens",
+      "cacheWriteTokens"
+    ],
+    "ignored": [
+      "streamingOrDuplicateRows",
+      "unknownFieldNames",
+      "invalidJsonRows",
+      "unknownEventRows",
+      "invalidCounterGroups",
+      "conflictingStreamingGroups",
+      "componentDuplicateSnapshots",
+      "invalidSnapshots",
+      "invalidDeltas",
+      "allZeroSnapshots",
+      "componentDecreaseRebases"
+    ],
+    "pending": [
+      "incompleteGroups"
+    ]
+  },
+  "allowedProtocolValues": {
+    "jsonlTypes": ["assistant", "future-event", "session_meta", "turn_context", "event_msg"],
+    "payloadTypes": ["token_count", "future_event"],
+    "roles": ["assistant"],
+    "stopReasons": ["end_turn", "tool_use", null],
+    "eventAgents": ["claude-code", "codex"],
+    "caseFixtures": ["streaming.jsonl", "malformed.jsonl", "pending-continuation.jsonl", "cumulative.jsonl", "resume.jsonl", "reset.jsonl"],
+    "transitionDecisions": [
+      "first-component-delta",
+      "first-zero-baseline-no-emit",
+      "resumed-session-component-delta",
+      "component-decrease-rebase-no-emit",
+      "zero-reset-rebase-no-emit",
+      "component-delta",
+      "decrease-without-last-rebase-no-emit",
+      "invalid-snapshot-baseline-unchanged"
+    ],
+    "unknownFieldNames": ["future_usage_detail", "future_field"],
+    "intentionalInvalidJsonRow": "{this-is-intentionally-invalid-json"
+  },
+  "syntheticValuePolicy": {
+    "timestampPrefix": "2000-01-01T",
+    "sessionIds": ["session-claude-a", "session-claude-b", "session-codex-a", "session-codex-b"],
+    "requestIds": ["request-a", "request-b", "request-c", "request-d", "request-e", "request-f"],
+    "messageIds": ["message-a", "message-b", "message-c", "message-d", "message-e", "message-f"],
+    "agentIds": ["agent-a", "agent-b"],
+    "models": ["claude-synthetic", "claude-synthetic-fallback", "gpt-synthetic-a", "gpt-synthetic-b"],
+    "modelProvider": "synthetic-provider",
+    "cliVersion": "0.0.0-synthetic",
+    "codexContextOffset": 200000
+  },
+  "intentionalInvalidCases": [
+    "one invalid JSON row per agent",
+    "one negative Claude counter",
+    "one Claude call with conflicting model/cache revisions",
+    "one Claude call without a terminal snapshot",
+    "one valid Codex snapshot whose delta violates cache subset",
+    "one Codex snapshot whose reasoning exceeds output",
+    "Codex component-decrease rows that rebase without emission"
+  ],
+  "forbiddenData": [
+    "prompt or message content",
+    "tool arguments or results",
+    "local or absolute paths",
+    "repository or remote identifiers",
+    "UUID, ULID, hashes, or high-entropy IDs",
+    "URL, email, account, organization, hostname, or IP address",
+    "credential, cookie, authorization value, or private key",
+    "raw error or command output",
+    "original timestamps"
+  ],
+  "compactPolicy": "No structural Claude compact sample was observed. No compact shape is asserted or fixture-created before the controlled experiment receives human approval.",
+  "reviewPolicy": "Privacy review and semantic arithmetic review are independent gates."
+}

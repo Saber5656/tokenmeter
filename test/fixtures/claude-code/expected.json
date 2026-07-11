@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "cases": [
+    {
+      "fixture": "streaming.jsonl",
+      "events": [
+        {
+          "ts": "2000-01-01T00:00:03.000Z",
+          "agent": "claude-code",
+          "model": "claude-synthetic",
+          "sessionId": "session-claude-a",
+          "inputTokens": 100,
+          "outputTokens": 12,
+          "cacheReadTokens": 30,
+          "cacheWriteTokens": 20
+        },
+        {
+          "ts": "2000-01-01T00:00:04.000Z",
+          "agent": "claude-code",
+          "model": "claude-synthetic",
+          "sessionId": "session-claude-a",
+          "inputTokens": 5,
+          "outputTokens": 4,
+          "cacheReadTokens": 80,
+          "cacheWriteTokens": 0
+        }
+      ],
+      "ignored": {
+        "streamingOrDuplicateRows": 3,
+        "unknownFieldNames": ["future_usage_detail"]
+      }
+    },
+    {
+      "fixture": "malformed.jsonl",
+      "events": [
+        {
+          "ts": "2000-01-01T00:01:01.500Z",
+          "agent": "claude-code",
+          "model": "claude-synthetic",
+          "sessionId": "session-claude-a",
+          "inputTokens": 3,
+          "outputTokens": 2,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        },
+        {
+          "ts": "2000-01-01T00:01:02.000Z",
+          "agent": "claude-code",
+          "model": null,
+          "sessionId": "session-claude-b",
+          "inputTokens": 7,
+          "outputTokens": 2,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      ],
+      "ignored": {
+        "invalidJsonRows": 1,
+        "unknownEventRows": 1,
+        "invalidCounterGroups": 1,
+        "conflictingStreamingGroups": 1
+      },
+      "pending": {
+        "incompleteGroups": 1
+      }
+    },
+    {
+      "fixture": "pending-continuation.jsonl",
+      "sourceFixture": "malformed.jsonl",
+      "events": [
+        {
+          "ts": "2000-01-01T00:01:07.000Z",
+          "agent": "claude-code",
+          "model": "claude-synthetic",
+          "sessionId": "session-claude-b",
+          "inputTokens": 9,
+          "outputTokens": 6,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      ],
+      "resolvedPendingGroups": 1,
+      "ignored": {
+        "streamingOrDuplicateRows": 1
+      },
+      "pending": {
+        "incompleteGroups": 0
+      }
+    }
+  ]
+}
