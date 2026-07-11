@@ -122,21 +122,84 @@ interface ScanResult { events: UsageEvent[]; cursor: Cursor; }
 interface UsageEvent {
   ts: string;                 // ISO 8601
   agent: string;              // 'claude-code' | 'codex'
-  model: string;              // ログの実モデル名を正規化せず保持 + 正規化名を別フィールド
+  model: string | null;       // 観測した実モデル名。取得不能時は null（推測・正規化しない）
   sessionId: string;
   project?: string;           // Claude Code の project slug 等
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;    // Codex: cached_input_tokens / Claude: cache_read_input_tokens
+  inputTokens: number;        // cache read/write と重複しない input
+  outputTokens: number;       // reasoning_output_tokens を含む
+  cacheReadTokens: number;    // inputTokens から分離した cache hit
   cacheWriteTokens: number;   // Claude: cache_creation_input_tokens / Codex: なし → 0
   costUsd?: number;           // 料金表から算出。単価不明モデルは undefined のまま集計時に「未計上」表示
 }
 ```
 
-注意点（実ログ確認より）:
+4カテゴリは非重複とし、表示・合計・料金計算では次だけを足す。
 
-- Claude Code は assistant メッセージごとに `message.usage` を持つ（差分値）。`server_tool_use` 等の追加フィールドは v1 では無視
-- Codex の `total_token_usage` は**累積値**の可能性が高い。イベント間の差分化を adapter 内で行い、`reasoning_output_tokens` は outputTokens に含まれるかを Spike（Issue #3）で確定する
+```text
+total observed tokens = inputTokens + cacheReadTokens + cacheWriteTokens + outputTokens
+```
+
+#### Claude Code の変換規則
+
+| UsageEvent | ログ上の source |
+|---|---|
+| `ts` | terminal assistant row の `timestamp` |
+| `model` | `message.model`。欠落時は `null` |
+| `sessionId` | row の `sessionId` |
+| `project` | source file の project slug。絶対パスは保持しない |
+| `inputTokens` | `message.usage.input_tokens` |
+| `outputTokens` | `message.usage.output_tokens` |
+| `cacheReadTokens` | `message.usage.cache_read_input_tokens` |
+| `cacheWriteTokens` | `message.usage.cache_creation_input_tokens` |
+
+`message.usage` は API response 単位の値だが、JSONL の1行が必ず1 response ではない。同じ call identity に対して streaming snapshot と同一行の再掲があるため、物理 file order で group 化する。
+
+call boundary は adapter cursor が持つ source-file identity と、row 上の `sessionId` / `requestId` / `message.id` / `agentId` / `isSidechain` の組み合わせで判定する。source の絶対パスは UsageEvent に出さない。
+
+1. 同一 group の input/cache/model/request identity が一定で、`output_tokens` が非減少であることを確認する。
+2. `stop_reason != null` の terminal snapshot を採用し、同一 terminal row の再掲を dedupe して1件だけ emit する。
+3. terminal 未到達 group は cursor state に保留し、中間 snapshot を先に emit しない。
+4. counter が非負 safe integer でない、group 内の固定 field が競合する、または terminal output が最大でない group は malformed として skip する。call 内で model/cache が変わる fallback/retry も黙って collapse せず例外扱いにする。
+5. unknown field（`server_tool_use` 等）は合計へ加えない。malformed / unknown row は後続 group に影響させない。
+
+Claude Code の compact marker は 2026-07-11 の調査 corpus では構造的に観測できず、形式未確定である。free text、summary、token 数の変化から推測せず、structural evidence が得られるまで compact/eviction event を emit しない。
+
+#### Codex の変換規則
+
+`event_msg.payload.type == "token_count"` の `info.total_token_usage` は session 内の累積 snapshot である。差分・同一性・妥当性の判定には次の4 component だけを使う。
+
+```text
+input_tokens
+cached_input_tokens     // input_tokens の内数
+output_tokens
+reasoning_output_tokens // output_tokens の内数
+```
+
+`total_tokens` は使用量 component と無関係な一定 offset を含む実例があるため、差分・同一性・validation・合計のすべてで無視し、正規化後の field から再計算する。
+
+| UsageEvent | 累積 snapshot 間の delta からの変換 |
+|---|---|
+| `ts` | current token-count row の `timestamp` |
+| `model` | 同一 session で直前の `turn_context.payload.model`。欠落時は `null` |
+| `sessionId` | `session_meta.payload.id` |
+| `inputTokens` | `delta.input_tokens - delta.cached_input_tokens` |
+| `outputTokens` | `delta.output_tokens`（reasoning を再加算しない） |
+| `cacheReadTokens` | `delta.cached_input_tokens` |
+| `cacheWriteTokens` | `0` |
+
+snapshot は4 component が非負 safe integer、`cached_input_tokens <= input_tokens`、`reasoning_output_tokens <= output_tokens` のときだけ valid とする。`model_provider` は model 名として使わない。
+
+baseline は source file ではなく stable `sessionId` ごとに保持し、resume で別 rollout file に続いても引き継ぐ。新しい `sessionId` だけが first-sample rule を開始し、`session_meta` の出現だけでは既存 baseline を無条件に捨てない。
+
+1. session の最初の valid snapshot は zero baseline との差分を使う。全 component が0なら emit しない。
+2. component が前回と同一なら `total_tokens` / `last_token_usage` が違っても emit しない。
+3. 全 component が非減少なら component-wise delta を正規化する。delta 自体が subset 条件を満たさない場合は skip し、baseline を進めない。
+4. component が減少したら counter epoch の切替として current を新 baseline にし、その row は emit しない。current 累積値の再掲も `last_token_usage` の代替 emit も行わない。
+5. malformed snapshot は skip し、baseline を進めない。未知 event / field は無視する。
+
+`last_token_usage` は component delta の検証と初期 baseline の補助にだけ使う。同一 snapshot の再掲でも値が残り得るため、通常の changed snapshot や reset row の UsageEvent source にしてはならない。
+
+`normalizedModel` は UsageEvent へ追加しない。canonical event には観測した raw model または `null` だけを保存し、pricing/query 層が更新可能な mapping から必要時に派生する。これにより schema と model table の更新周期を分離する。
 
 ### 5.3 ContextSnapshot（lens / viz 用）
 
@@ -198,7 +261,7 @@ $ tokenmeter lens --session <id> / --project <slug>
 
 - TUI 全画面。context window を 100% 積み上げバー + ブロックリストで表示し、新規メッセージで更新
 - window limit はモデル別テーブル（pricing.json に併載）から取得。limit 接近で警告色
-- **eviction 表示**: 実測ではなくログから観測できる範囲（Claude Code の compact イベント等）を「押し出し発生」として表示し、直前スナップショットとの差分で「何が消えたか」を推定表示する。観測できない場合は「limit までの残り」の表示に徹する（誇張しない）
+- **eviction 表示**: Claude Code compact の structural shape は未観測で、controlled `/compact` 検証の実施方針は人間判断待ち。shape を確定するまでは推測表示せず「limit までの残り」だけを表示する
 
 ### 6.5 config（`~/.tokenmeter/config.json`）
 
@@ -244,17 +307,20 @@ Local-first token & context observability for AI agents.
 
 | 優先度 | リスク | 検証・対処 |
 |---|---|---|
-| P0 | Codex `total_token_usage` の意味論（累積か差分か、`reasoning_output_tokens` の重複計上） | Spike Issue #3 で実ログ複数本から確定。**存在確認は済み**（下記 evidence） |
-| P0 | Codex ログからの model 名取得可否 | 同上。取れない場合は session メタ or config 既定値でフォールバック |
+| P0 | Codex `total_token_usage` の意味論（累積か差分か、`reasoning_output_tokens` の重複計上） | Issue #3 で解決。4 component の累積差分を使い、reasoning は output の内数、`total_tokens` は非 authoritative とする（§5.2） |
+| P0 | Codex ログからの model 名取得可否 | Issue #3 で解決。直前の `turn_context.payload.model` を使い、取得不能時は推測せず `null` とする |
 | P1 | ブロック按分近似の誤差が lens の説得力を損なう | 「実測合計は正確・内訳は近似」を UI に常時明示。ターン合計と実測の突合テスト |
 | P1 | 料金表の陳腐化（新モデル追従） | LiteLLM 互換の外部差し替え口 + 単価不明モデルは「未計上」を明示（黙って $0 にしない） |
 | P2 | ログ肥大時の scan 性能 | incremental cursor（§5.4）。ベンチは 10 万イベントで計測 |
 | P2 | Claude Code / Codex のログ形式変更 | adapter を fixture テストで固定し、形式変更を CI で検知 |
 
-**実ログ確認済み evidence（2026-07-08, 本設計の根拠）**:
+**実ログ確認済み evidence（2026-07-11, aggregate-only）**:
 
-- Claude Code: `~/.claude/projects/<slug>/<uuid>.jsonl` に `"usage":{"input_tokens":7813,"cache_creation_input_tokens":5687,"cache_read_input_tokens":17140,"output_tokens":180,...}` を確認
-- Codex: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` に `"total_token_usage":{"input_tokens":15838,"cached_input_tokens":7040,"output_tokens":121,"reasoning_output_tokens":103,"total_tokens":15959}` を確認
+- Claude Code: 複数 file/session の structural audit で、同一 call の identical/progressive usage rows と terminal snapshot を確認した。単純な JSONL 行合算はしない
+- Claude Code compact: structural marker は調査 corpus で未観測。未観測を不在と断定せず、controlled `/compact` の human choice が決まるまで検出契約を確定しない
+- Codex: 複数 rollout/session の arithmetic audit で component total の累積性、unchanged repeat、counter decrease、cache/reasoning の包含関係を確認した。`total_tokens` には context-window-sized offset anomaly があり authoritative source から除外した
+- Codex model: token snapshot と直前の `turn_context.payload.model` の stateful association を確認した。provider metadata は model fallback に使わない
+- corpus counts と詳細 evidence は private task record にだけ保存する。repository へ公開する fixture は raw log の masking ではなく allowlist から再構築した synthetic data のみ
 
 ---
 
