@@ -1,0 +1,54 @@
+{
+  "name": "@saber5656/tokenmeter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local-first token and context observability for AI agents",
+  "type": "module",
+  "bin": {
+    "tokenmeter": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pack:dry-run": "npm pack --dry-run",
+    "test:pack": "node scripts/pack-smoke.mjs",
+    "prepack": "npm run build",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run pack:dry-run && npm run test:pack"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saber5656/tokenmeter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Saber5656/tokenmeter/issues"
+  },
+  "homepage": "https://github.com/Saber5656/tokenmeter#readme",
+  "keywords": [
+    "ai",
+    "cli",
+    "codex",
+    "tokens",
+    "usage"
+  ],
+  "dependencies": {
+    "commander": "15.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.1",
+    "eslint": "10.7.0",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.63.0",
+    "vitest": "4.1.10"
+  }
+}
