@@ -1,4 +1,4 @@
-import { constants } from "node:fs";
+import { constants, type Stats } from "node:fs";
 import { chmod, lstat, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -114,7 +114,7 @@ describe("config I/O", () => {
     });
   });
 
-  it("replaces a permissive target with a mode-0600 file", async () => {
+  it("replaces a group-readable target with a mode-0600 file", async () => {
     const configPath = await createConfigFile("{}");
     await chmod(configPath, 0o644);
 
@@ -145,6 +145,89 @@ describe("config I/O", () => {
     expect((await lstat(configDirectory)).mode & 0o777).toBe(0o700);
   });
 
+  it("rejects config directories that are not owned by the current user", async () => {
+    const homeDir = await createTemporaryDirectory();
+    const configDirectory = join(homeDir, ".tokenmeter");
+    const configPath = join(configDirectory, "config.json");
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(configDirectory, { mode: 0o700 });
+    await writeFile(configPath, "{}", { mode: 0o600 });
+    let chmodCalled = false;
+    const foreignOwnerFileSystem: ConfigFileSystem = {
+      ...overrideLstat(configDirectory, (stat) =>
+        overrideStats(stat, { uid: stat.uid + 1 }),
+      ),
+      chmod: async () => {
+        chmodCalled = true;
+      },
+    };
+
+    await expect(
+      loadConfig({ homeDir, fileSystem: foreignOwnerFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+    await expect(
+      writeConfig({}, { homeDir, fileSystem: foreignOwnerFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+    expect(chmodCalled).toBe(false);
+  });
+
+  it("rejects config files that are not owned by the current user", async () => {
+    const configPath = await createConfigFile("{}");
+    const foreignOwnerFileSystem = overrideLstat(configPath, (stat) =>
+      overrideStats(stat, { uid: stat.uid + 1 }),
+    );
+
+    await expect(
+      loadConfig({ configPath, fileSystem: foreignOwnerFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+    await expect(
+      writeConfig({}, { configPath, fileSystem: foreignOwnerFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+  });
+
+  it.each([
+    ["group", 0o770],
+    ["others", 0o702],
+  ] as const)("rejects config directories writable by %s", async (_scope, mode) => {
+    const homeDir = await createTemporaryDirectory();
+    const configDirectory = join(homeDir, ".tokenmeter");
+    const configPath = join(configDirectory, "config.json");
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(configDirectory, { mode: 0o700 });
+    await writeFile(configPath, "{}", { mode: 0o600 });
+    await chmod(configDirectory, mode);
+    let chmodCalled = false;
+    const observingFileSystem: ConfigFileSystem = {
+      ...nodeConfigFileSystem,
+      chmod: async () => {
+        chmodCalled = true;
+      },
+    };
+
+    await expect(loadConfig({ homeDir, fileSystem: observingFileSystem })).rejects.toMatchObject({
+      code: "CONFIG_UNSAFE_PATH",
+    });
+    await expect(
+      writeConfig({}, { homeDir, fileSystem: observingFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+    expect(chmodCalled).toBe(false);
+  });
+
+  it.each([
+    ["group", 0o620],
+    ["others", 0o602],
+  ] as const)("rejects config files writable by %s", async (_scope, mode) => {
+    const configPath = await createConfigFile("{}");
+    await chmod(configPath, mode);
+
+    await expect(loadConfig({ configPath })).rejects.toMatchObject({
+      code: "CONFIG_UNSAFE_PATH",
+    });
+    await expect(writeConfig({}, { configPath })).rejects.toMatchObject({
+      code: "CONFIG_UNSAFE_PATH",
+    });
+  });
+
   it("validates before creating files", async () => {
     const homeDir = await createTemporaryDirectory();
     const configPath = resolveConfigPath({ homeDir });
@@ -172,14 +255,23 @@ describe("config I/O", () => {
     expect((await readdir(dirname(configPath))).filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
-  it("produces one complete config under concurrent writes", async () => {
+  it("keeps one complete config under concurrent writes", async () => {
     const homeDir = await createTemporaryDirectory();
     const configPath = resolveConfigPath({ homeDir });
 
-    await Promise.all([
+    // Both writers may pass their final identity check before either rename. A detected
+    // conflict may reject, but the path must always contain one complete config.
+    const results = await Promise.allSettled([
       writeConfig({ budgets: { daily: 1 } }, { configPath }),
       writeConfig({ budgets: { daily: 2 } }, { configPath }),
     ]);
+
+    expect(results.some((result) => result.status === "fulfilled")).toBe(true);
+    for (const result of results) {
+      if (result.status === "rejected") {
+        expect(result.reason).toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+      }
+    }
 
     const config = await loadConfig({ configPath });
     expect([1, 2]).toContain(config.budgets.daily);
@@ -216,19 +308,155 @@ describe("config I/O", () => {
     });
   });
 
+  it("rejects a directory at the config file path", async () => {
+    const directory = await createTemporaryDirectory();
+    const configPath = join(directory, "config.json");
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(configPath, { mode: 0o700 });
+
+    await expect(loadConfig({ configPath })).rejects.toMatchObject({
+      code: "CONFIG_UNSAFE_PATH",
+    });
+    await expect(writeConfig({}, { configPath })).rejects.toMatchObject({
+      code: "CONFIG_UNSAFE_PATH",
+    });
+  });
+
   it("does not silently replace non-ENOENT read failures with defaults", async () => {
     const configPath = await createConfigFile("{}");
+    const secretDiagnostic = "sensitive-injected-os-error";
     const failingFileSystem: ConfigFileSystem = {
       ...nodeConfigFileSystem,
       open: async () => {
-        throw Object.assign(new Error("injected permission failure"), { code: "EACCES" });
+        throw Object.assign(new Error(secretDiagnostic), { code: "EACCES" });
       },
     };
 
-    await expect(loadConfig({ configPath, fileSystem: failingFileSystem })).rejects.toMatchObject({
-      code: "CONFIG_READ_FAILED",
-      osCode: "EACCES",
-    });
+    try {
+      await loadConfig({ configPath, fileSystem: failingFileSystem });
+      throw new Error("expected loadConfig to fail");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "CONFIG_READ_FAILED", osCode: "EACCES" });
+      expect(String(error)).not.toContain(secretDiagnostic);
+    }
+  });
+
+  it("rejects a config file identity change before reading replacement contents", async () => {
+    const configPath = await createConfigFile('{"warnAt":0.5}');
+    const replacementPath = `${configPath}.replacement`;
+    const replacementContents = '{"currency":"replacement-secret"}';
+    await writeFile(replacementPath, replacementContents, { mode: 0o600 });
+    const substitutingFileSystem: ConfigFileSystem = {
+      ...nodeConfigFileSystem,
+      open: async (path, flags, mode) => {
+        if (path === configPath) {
+          await nodeConfigFileSystem.rename(replacementPath, configPath);
+        }
+        return nodeConfigFileSystem.open(path, flags, mode);
+      },
+    };
+
+    try {
+      await loadConfig({ configPath, fileSystem: substitutingFileSystem });
+      throw new Error("expected loadConfig to fail");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+      expect(String(error)).not.toContain("replacement-secret");
+    }
+  });
+
+  it("rechecks config file metadata on the opened handle", async () => {
+    const configPath = await createConfigFile('{"warnAt":0.5}');
+    const modeChangingFileSystem: ConfigFileSystem = {
+      ...nodeConfigFileSystem,
+      open: async (path, flags, mode) => {
+        if (path === configPath) {
+          await chmod(configPath, 0o620);
+        }
+        return nodeConfigFileSystem.open(path, flags, mode);
+      },
+    };
+
+    await expect(
+      loadConfig({ configPath, fileSystem: modeChangingFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+  });
+
+  it("rejects a config file that disappears after inspection", async () => {
+    const configPath = await createConfigFile("{}");
+    const { unlink } = await import("node:fs/promises");
+    const disappearingFileSystem: ConfigFileSystem = {
+      ...nodeConfigFileSystem,
+      open: async (path, flags, mode) => {
+        if (path === configPath) {
+          await unlink(configPath);
+        }
+        return nodeConfigFileSystem.open(path, flags, mode);
+      },
+    };
+
+    await expect(
+      loadConfig({ configPath, fileSystem: disappearingFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+  });
+
+  it("rejects a config file identity change before replacing the target", async () => {
+    const configPath = await createConfigFile('{"warnAt":0.5}');
+    const replacementPath = `${configPath}.replacement`;
+    const replacementContents = '{"warnAt":0.4}';
+    await writeFile(replacementPath, replacementContents, { mode: 0o600 });
+    let targetChecks = 0;
+    let finalRenameCalled = false;
+    const substitutingFileSystem: ConfigFileSystem = {
+      ...nodeConfigFileSystem,
+      lstat: async (path) => {
+        if (path === configPath && ++targetChecks === 2) {
+          await nodeConfigFileSystem.rename(replacementPath, configPath);
+        }
+        return nodeConfigFileSystem.lstat(path);
+      },
+      rename: async (oldPath, newPath) => {
+        finalRenameCalled = true;
+        await nodeConfigFileSystem.rename(oldPath, newPath);
+      },
+    };
+
+    await expect(
+      writeConfig({ warnAt: 0.9 }, { configPath, fileSystem: substitutingFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+    expect(finalRenameCalled).toBe(false);
+    expect(await readFile(configPath, "utf8")).toBe(replacementContents);
+    const { readdir } = await import("node:fs/promises");
+    expect((await readdir(dirname(configPath))).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("does not overwrite a config file that appears during a write", async () => {
+    const directory = await createTemporaryDirectory();
+    const configPath = join(directory, "config.json");
+    const appearedContents = '{"warnAt":0.3}';
+    let targetChecks = 0;
+    let finalRenameCalled = false;
+    const appearingFileSystem: ConfigFileSystem = {
+      ...nodeConfigFileSystem,
+      lstat: async (path) => {
+        if (path === configPath && ++targetChecks === 2) {
+          await writeFile(configPath, appearedContents, { mode: 0o600 });
+        }
+        return nodeConfigFileSystem.lstat(path);
+      },
+      rename: async (oldPath, newPath) => {
+        finalRenameCalled = true;
+        await nodeConfigFileSystem.rename(oldPath, newPath);
+      },
+    };
+
+    await expect(
+      writeConfig({ warnAt: 0.9 }, { configPath, fileSystem: appearingFileSystem }),
+    ).rejects.toMatchObject({ code: "CONFIG_UNSAFE_PATH" });
+    expect(finalRenameCalled).toBe(false);
+    expect(await readFile(configPath, "utf8")).toBe(appearedContents);
+    const { readdir } = await import("node:fs/promises");
+    expect((await readdir(directory)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
   it("rejects a config directory identity change during read", async () => {
@@ -272,4 +500,32 @@ async function createConfigFile(contents: string): Promise<string> {
   const configPath = join(directory, "config.json");
   await writeFile(configPath, contents, { mode: constants.S_IRUSR | constants.S_IWUSR });
   return configPath;
+}
+
+function overrideLstat(pathToOverride: string, transform: (stat: Stats) => Stats): ConfigFileSystem {
+  return {
+    ...nodeConfigFileSystem,
+    lstat: async (path) => {
+      const stat = await nodeConfigFileSystem.lstat(path);
+      return path === pathToOverride ? transform(stat) : stat;
+    },
+  };
+}
+
+function overrideStats(
+  stat: Stats,
+  overrides: Partial<Record<"dev" | "ino" | "mode" | "uid", number>>,
+): Stats {
+  return new Proxy(stat, {
+    get(target, property) {
+      if (typeof property === "string") {
+        const replacement = overrides[property as keyof typeof overrides];
+        if (replacement !== undefined) {
+          return replacement;
+        }
+      }
+      const value = Reflect.get(target, property, target) as unknown;
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
 }
