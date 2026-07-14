@@ -65,7 +65,7 @@ tokenmeter は、ローカルで動く AI コーディングエージェント�
 
 | 優先度 | 環境 | 判断 | 理由 |
 |---|---|---|---|
-| 1 (v1) | macOS / Linux + Node.js 20+ | 対応 | 開発者の環境で検証が完結する。対象ユーザー（CLI エージェント利用者）は Node を持っている |
+| 1 (v1) | macOS / Linux + Node.js >=22.14.0 | 対応 | 開発者の環境で検証が完結する。対象ユーザー（CLI エージェント利用者）は Node を持っている |
 | 2 (v2) | Windows | 保留 | ログパスと ANSI/TUI 挙動の検証コストが「早く出す」に反する。パス抽象だけ v1 から分離しておく |
 
 ---
@@ -76,7 +76,7 @@ tokenmeter は、ローカルで動く AI コーディングエージェント�
 
 | 候補 | 配布/起動 | TUI・エコシステム | 開発コスト | 判定 |
 |---|---|---|---|---|
-| **TypeScript + Node.js（採用）** | `npx tokenmeter` で 0 インストール試用。対象ユーザーは全員 Node 保有 | Ink 等の TUI、JSONL 処理の先行実装（ccusage）が同言語で参照できる | 最小。tokenizer を切った（§2）ので TS の速度で困る処理がない | ✅ |
+| **TypeScript + Node.js（採用）** | 公開後は `npx @saber5656/tokenmeter` でグローバルインストールなしに試用。対象ユーザーは全員 Node 保有 | Ink 等の TUI、JSONL 処理の先行実装（ccusage）が同言語で参照できる | 最小。tokenizer を切った（§2）ので TS の速度で困る処理がない | ✅ |
 | Rust | 単一バイナリで最速 | ratatui は強いが、配布は brew/cargo で npx より一段重い | 高。この規模の I/O 集計に Rust の利点が薄い | ❌ 過剰 |
 | Go | 単一バイナリ | TUI は可、ただし npm 系ユーザーへの導線が弱い | 中 | ❌ |
 
@@ -84,11 +84,11 @@ tokenmeter は、ローカルで動く AI コーディングエージェント�
 
 | 層 | 技術 | 理由 |
 |---|---|---|
-| 言語 | TypeScript 5.x / Node.js 20+ | 上記 |
+| 言語 | TypeScript 5.x / Node.js >=22.14.0 | `package.json` の `engines` と一致。CI は下限 22.14.0 と 24.x で検証 |
 | CLI | commander | 枯れていて十分 |
 | TUI（hp/viz） | ANSI 直書き + log-update 系の最小構成 | Ink(React) は viz で検討。hp はフレームワーク不要の軽さを優先 |
 | テスト | vitest + 実ログ形式の fixture | adapter は fixture ベースで回帰を防ぐ |
-| ビルド/配布 | tsup + npm publish | `npx tokenmeter` / `npm i -g` |
+| ビルド/配布 | tsup + npm package（publish は別 release gate） | 公開後は `npx @saber5656/tokenmeter` / `npm i -g @saber5656/tokenmeter`。実行 bin は `tokenmeter` |
 
 **デーモンレス方針**: 常駐プロセスを持たない。各実行時にログを incremental scan し、`--watch` はファイル監視で同じ scan を差分駆動する。常駐が要る機能（メニューバー等）は恒久的にスコープ外。
 
@@ -216,7 +216,7 @@ $ tokenmeter lens --session <id> / --project <slug>
 
 | 手段 | 内容 |
 |---|---|
-| npm | `npx tokenmeter` / `npm i -g tokenmeter`。npm パッケージ名の空きは実装着手時に確認（Issue #4 受け入れ条件） |
+| npm | package は `@saber5656/tokenmeter`、bin は `tokenmeter`。公開後は `npx @saber5656/tokenmeter` / `npm i -g @saber5656/tokenmeter`。現在は `private: true` で未公開。registry availability の再確認と公開は別 release gate |
 | GitHub Releases | tag push で CI が publish。CHANGELOG 自動生成 |
 | Homebrew | v2 検討（npx で十分軽いため） |
 
@@ -229,7 +229,7 @@ $ tokenmeter lens --session <id> / --project <slug>
 Local-first token & context observability for AI agents.
 [hp gauge の GIF]
 
-## Install        — npx tokenmeter
+## Install        — npx @saber5656/tokenmeter
 ## What it does   — meter / hp / lens / viz の 4 行 + スクリーンショット
 ## Why            — ccusage 系（集計）と profiler 系の統合 + context observability
 ## Privacy        — reads local session logs only; zero network calls
@@ -267,8 +267,8 @@ Local-first token & context observability for AI agents.
   受け入れ条件: フィールド対応表と差分化ルールを Issue コメントに記録し、fixture 用サンプルログ（マスク済み）を `test/fixtures/` に追加。
 
 - **#4 `Set up CLI scaffold, config loading, and npm packaging`** — ラベル: `infra`
-  TypeScript + commander + tsup + vitest の雛形、`~/.tokenmeter/config.json` の読み書き、CI（lint + test）、npm パッケージ名の確保。
-  受け入れ条件: `npx tokenmeter --help` がローカル pack から動作し、CI が緑、パッケージ名が確保済み。
+  TypeScript + commander + tsup + vitest の雛形、`~/.tokenmeter/config.json` の読み書き、CI（lint + test）、scoped package identity の metadata 反映（公開・予約は別 gate）。
+  受け入れ条件: ローカル pack をインストールした隔離環境で `npx --no-install @saber5656/tokenmeter --help` が動作し、CI が緑、package/bin metadata が承認済み identity と一致する。package は未予約・未公開で、registry 再確認と publish は別の human release gate とする。
 
 - **#5 `Implement usage event store with incremental scan cursors`** — ラベル: `enhancement`
   append-only JSONL ストアと adapter ごとの cursor（mtime/size/offset）。再実行の冪等性を保証する。
