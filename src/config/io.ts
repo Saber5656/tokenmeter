@@ -12,6 +12,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { randomUUID } from "node:crypto";
+import process from "node:process";
 
 import {
   ConfigValidationError,
@@ -110,8 +111,8 @@ export async function loadConfig(options: ConfigIoOptions = {}): Promise<Tokenme
     return createDefaultConfig();
   }
 
-  const targetExists = await inspectTarget(configPath, fileSystem, "read");
-  if (!targetExists) {
+  const targetIdentity = await inspectTarget(configPath, fileSystem, "read");
+  if (targetIdentity === undefined) {
     return createDefaultConfig();
   }
 
@@ -122,9 +123,13 @@ export async function loadConfig(options: ConfigIoOptions = {}): Promise<Tokenme
       constants.O_RDONLY | constants.O_NOFOLLOW,
     );
     const openedStat = await handle.stat();
-    if (!openedStat.isFile()) {
-      throw unsafePath(configPath, "config path is not a regular file");
-    }
+    assertSafeTargetMetadata(openedStat, configPath);
+    assertSameIdentity(
+      targetIdentity,
+      openedStat,
+      configPath,
+      "config file changed during read",
+    );
     await assertDirectoryIdentity(
       directory,
       directoryIdentity,
@@ -141,7 +146,7 @@ export async function loadConfig(options: ConfigIoOptions = {}): Promise<Tokenme
       throw error;
     }
     if (hasErrorCode(error, "ENOENT")) {
-      return createDefaultConfig();
+      throw unsafePath(configPath, "config file changed during read");
     }
     if (hasErrorCode(error, "ELOOP")) {
       throw unsafePath(configPath, "config path must not be a symbolic link");
@@ -172,7 +177,7 @@ export async function writeConfig(
       fileSystem,
       options.configPath === undefined,
     );
-    await inspectTarget(configPath, fileSystem, "write");
+    const targetIdentity = await inspectTarget(configPath, fileSystem, "write");
 
     handle = await fileSystem.open(tempPath, "wx", 0o600);
     tempCreated = true;
@@ -189,6 +194,7 @@ export async function writeConfig(
       fileSystem,
       "write",
     );
+    await assertTargetIdentity(configPath, targetIdentity, fileSystem);
     await fileSystem.rename(tempPath, configPath);
     tempCreated = false;
     return normalized;
@@ -241,9 +247,7 @@ async function inspectDirectory(
 ): Promise<Stats | undefined> {
   try {
     const stat = await fileSystem.lstat(directory);
-    if (stat.isSymbolicLink() || !stat.isDirectory()) {
-      throw unsafePath(configPath, "config directory must be a real directory");
-    }
+    assertSafeDirectoryMetadata(stat, configPath);
     return stat;
   } catch (error) {
     if (error instanceof ConfigError) {
@@ -265,19 +269,17 @@ async function inspectTarget(
   configPath: string,
   fileSystem: ConfigFileSystem,
   operation: "read" | "write",
-): Promise<boolean> {
+): Promise<Stats | undefined> {
   try {
     const stat = await fileSystem.lstat(configPath);
-    if (stat.isSymbolicLink() || !stat.isFile()) {
-      throw unsafePath(configPath, "config path must be a regular file, not a symbolic link");
-    }
-    return true;
+    assertSafeTargetMetadata(stat, configPath);
+    return stat;
   } catch (error) {
     if (error instanceof ConfigError) {
       throw error;
     }
     if (hasErrorCode(error, "ENOENT")) {
-      return false;
+      return undefined;
     }
     throw ioError(
       operation === "read" ? "CONFIG_READ_FAILED" : "CONFIG_WRITE_FAILED",
@@ -343,6 +345,71 @@ async function assertDirectoryIdentity(
   const current = await inspectDirectory(directory, configPath, fileSystem, operation);
   if (current === undefined || current.dev !== expected.dev || current.ino !== expected.ino) {
     throw unsafePath(configPath, `config directory changed during ${operation}`);
+  }
+}
+
+async function assertTargetIdentity(
+  configPath: string,
+  expected: Stats | undefined,
+  fileSystem: ConfigFileSystem,
+): Promise<void> {
+  const current = await inspectTarget(configPath, fileSystem, "write");
+  if (expected === undefined && current === undefined) {
+    return;
+  }
+  if (expected === undefined || current === undefined) {
+    throw unsafePath(configPath, "config file changed during write");
+  }
+  assertSameIdentity(expected, current, configPath, "config file changed during write");
+}
+
+function assertSafeDirectoryMetadata(stat: Stats, configPath: string): void {
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw unsafePath(configPath, "config directory must be a real directory");
+  }
+  assertCurrentUserOwnership(stat, configPath, "config directory");
+  assertNotSharedWritable(stat, configPath, "config directory");
+}
+
+function assertSafeTargetMetadata(stat: Stats, configPath: string): void {
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    throw unsafePath(configPath, "config path must be a regular file, not a symbolic link");
+  }
+  assertCurrentUserOwnership(stat, configPath, "config file");
+  assertNotSharedWritable(stat, configPath, "config file");
+}
+
+function assertCurrentUserOwnership(
+  stat: Stats,
+  configPath: string,
+  subject: "config directory" | "config file",
+): void {
+  if (typeof process.getuid !== "function") {
+    throw unsafePath(configPath, "current user identity is unavailable on this platform");
+  }
+  if (stat.uid !== process.getuid()) {
+    throw unsafePath(configPath, `${subject} must be owned by the current user`);
+  }
+}
+
+function assertNotSharedWritable(
+  stat: Stats,
+  configPath: string,
+  subject: "config directory" | "config file",
+): void {
+  if ((stat.mode & (constants.S_IWGRP | constants.S_IWOTH)) !== 0) {
+    throw unsafePath(configPath, `${subject} must not be writable by group or others`);
+  }
+}
+
+function assertSameIdentity(
+  expected: Stats,
+  current: Stats,
+  configPath: string,
+  reason: string,
+): void {
+  if (current.dev !== expected.dev || current.ino !== expected.ino) {
+    throw unsafePath(configPath, reason);
   }
 }
 
