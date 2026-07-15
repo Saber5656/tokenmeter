@@ -1,0 +1,1 @@
+{"type":"assistant","timestamp":"2000-01-01T00:01:07.000Z","sessionId":"session-claude-b","requestId":"request-f","agentId":"agent-b","isSidechain":true,"message":{"id":"message-f","model":"claude-synthetic","role":"assistant","stop_reason":"end_turn","usage":{"input_tokens":9,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":6}}}

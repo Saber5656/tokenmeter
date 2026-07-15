@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "synthetic": true,
   "reasoningIsIncludedInOutput": true,
   "inputExcludesCacheRead": true,
@@ -7,114 +7,148 @@
     {
       "fixture": "cumulative.jsonl",
       "events": [
-        {
-          "ts": "2000-01-01T01:00:02.000Z",
-          "agent": "codex",
-          "model": "gpt-synthetic-a",
-          "sessionId": "session-codex-a",
-          "inputTokens": 60,
-          "outputTokens": 20,
-          "cacheReadTokens": 40,
-          "cacheWriteTokens": 0
-        },
-        {
-          "ts": "2000-01-01T01:00:05.000Z",
-          "agent": "codex",
-          "model": "gpt-synthetic-a",
-          "sessionId": "session-codex-a",
-          "inputTokens": 36,
-          "outputTokens": 15,
-          "cacheReadTokens": 24,
-          "cacheWriteTokens": 0
-        },
-        {
-          "ts": "2000-01-01T01:00:08.000Z",
-          "agent": "codex",
-          "model": "gpt-synthetic-b",
-          "sessionId": "session-codex-a",
-          "inputTokens": 44,
-          "outputTokens": 10,
-          "cacheReadTokens": 16,
-          "cacheWriteTokens": 0
-        }
+        {"ts": "2000-01-01T01:00:02.000Z", "agent": "codex", "model": "gpt-synthetic-a", "sessionId": "session-codex-a", "inputTokens": 60, "outputTokens": 20, "cacheReadTokens": 40, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T01:00:05.000Z", "agent": "codex", "model": "gpt-synthetic-a", "sessionId": "session-codex-a", "inputTokens": 36, "outputTokens": 15, "cacheReadTokens": 24, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T01:00:08.000Z", "agent": "codex", "model": "gpt-synthetic-b", "sessionId": "session-codex-a", "inputTokens": 44, "outputTokens": 10, "cacheReadTokens": 16, "cacheWriteTokens": 0}
       ],
-      "rawReasoningDeltas": [10, 7, 3],
-      "ignored": {
-        "componentDuplicateSnapshots": 1,
-        "invalidJsonRows": 1,
-        "invalidDeltas": 1,
-        "unknownEventRows": 1,
-        "unknownFieldNames": ["future_field"]
+      "eventIdentities": [
+        {"sourceGeneration": "codex-generation-a", "recordOrdinal": 2, "subIndex": 0},
+        {"sourceGeneration": "codex-generation-a", "recordOrdinal": 6, "subIndex": 0},
+        {"sourceGeneration": "codex-generation-a", "recordOrdinal": 9, "subIndex": 0}
+      ],
+      "componentDeltas": [[100, 40, 20, 10], [60, 24, 15, 7], [60, 16, 10, 3]],
+      "transitionDecisions": ["first-component-delta", "component-duplicate-no-emit", "invalid-delta-baseline-unchanged", "component-delta", "component-delta"],
+      "state": {"sessionKnownAtFirstMetadata": false, "baselineAtFirstMetadata": null, "modelAtFirstMetadata": null, "metadataOccurrences": 1, "metadataPreservedState": 0},
+      "ignored": {"invalidJsonRows": 1, "invalidSnapshots": 0, "invalidDeltas": 1, "componentDuplicateSnapshots": 1, "unknownEventRows": 1, "allZeroSnapshots": 0, "componentDecreaseRebases": 0, "lastUsageMismatches": 1, "lastUsageMissing": 0, "lastUsageMalformed": 0, "modelUnavailableEvents": 0, "staleSourceRecords": 0, "unknownFieldNames": ["future_field"]},
+      "diagnostics": [
+        {"code": "malformed-row", "occurrences": 1, "affectedRecords": 1, "coverage": "partial"},
+        {"code": "invalid-usage", "occurrences": 1, "affectedRecords": 1, "coverage": "partial"},
+        {"code": "codex-last-usage-mismatch", "occurrences": 1, "affectedRecords": 1, "coverage": "complete"}
+      ],
+      "coverage": {"complete": false, "skippedRecords": 2, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "codex-last-usage-mismatch": 1},
+        "coverageTotals": {"skippedRecords": 2, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "sessions": {"session-codex-a": {"baseline": [220, 80, 45, 20], "latestModel": "gpt-synthetic-b", "frontier": {"sourceOrder": 10, "recordOrdinal": 9}}}
       }
     },
     {
       "fixture": "resume.jsonl",
       "events": [
-        {
-          "ts": "2000-01-01T01:10:02.000Z",
-          "agent": "codex",
-          "model": "gpt-synthetic-b",
-          "sessionId": "session-codex-a",
-          "inputTokens": 20,
-          "outputTokens": 5,
-          "cacheReadTokens": 10,
-          "cacheWriteTokens": 0
-        }
+        {"ts": "2000-01-01T01:10:02.000Z", "agent": "codex", "model": "gpt-synthetic-b", "sessionId": "session-codex-a", "inputTokens": 20, "outputTokens": 5, "cacheReadTokens": 10, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T01:10:03.000Z", "agent": "codex", "model": "gpt-synthetic-b", "sessionId": "session-codex-a", "inputTokens": 15, "outputTokens": 4, "cacheReadTokens": 5, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T01:10:04.000Z", "agent": "codex", "model": "gpt-synthetic-b", "sessionId": "session-codex-a", "inputTokens": 15, "outputTokens": 6, "cacheReadTokens": 15, "cacheWriteTokens": 0}
       ],
-      "rawReasoningDeltas": [2],
-      "transitionDecisions": ["resumed-session-component-delta"],
-      "ignored": {}
+      "eventIdentities": [
+        {"sourceGeneration": "codex-generation-b", "recordOrdinal": 1, "subIndex": 0},
+        {"sourceGeneration": "codex-generation-b", "recordOrdinal": 2, "subIndex": 0},
+        {"sourceGeneration": "codex-generation-b", "recordOrdinal": 3, "subIndex": 0}
+      ],
+      "componentDeltas": [[30, 10, 5, 2], [20, 5, 4, 2], [30, 15, 6, 3]],
+      "transitionDecisions": ["resumed-session-component-delta", "component-delta-last-usage-missing", "component-delta-last-usage-malformed"],
+      "state": {"sessionKnownAtFirstMetadata": true, "baselineAtFirstMetadata": [220, 80, 45, 20], "modelAtFirstMetadata": "gpt-synthetic-b", "metadataOccurrences": 1, "metadataPreservedState": 1},
+      "ignored": {"invalidJsonRows": 0, "invalidSnapshots": 0, "invalidDeltas": 0, "componentDuplicateSnapshots": 0, "unknownEventRows": 0, "allZeroSnapshots": 0, "componentDecreaseRebases": 0, "lastUsageMismatches": 0, "lastUsageMissing": 1, "lastUsageMalformed": 1, "modelUnavailableEvents": 0, "staleSourceRecords": 0, "unknownFieldNames": []},
+      "diagnostics": [],
+      "coverage": {"complete": false, "skippedRecords": 2, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "codex-last-usage-mismatch": 1},
+        "coverageTotals": {"skippedRecords": 2, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "sessions": {"session-codex-a": {"baseline": [300, 110, 60, 27], "latestModel": "gpt-synthetic-b", "frontier": {"sourceOrder": 20, "recordOrdinal": 3}}}
+      }
     },
     {
       "fixture": "reset.jsonl",
       "events": [
-        {
-          "ts": "2000-01-01T02:00:02.000Z",
-          "agent": "codex",
-          "model": null,
-          "sessionId": "session-codex-b",
-          "inputTokens": 20,
-          "outputTokens": 5,
-          "cacheReadTokens": 10,
-          "cacheWriteTokens": 0
-        },
-        {
-          "ts": "2000-01-01T02:00:05.000Z",
-          "agent": "codex",
-          "model": null,
-          "sessionId": "session-codex-b",
-          "inputTokens": 12,
-          "outputTokens": 3,
-          "cacheReadTokens": 8,
-          "cacheWriteTokens": 0
-        },
-        {
-          "ts": "2000-01-01T02:00:08.000Z",
-          "agent": "codex",
-          "model": null,
-          "sessionId": "session-codex-b",
-          "inputTokens": 4,
-          "outputTokens": 2,
-          "cacheReadTokens": 1,
-          "cacheWriteTokens": 0
+        {"ts": "2000-01-01T02:00:02.000Z", "agent": "codex", "model": null, "sessionId": "session-codex-b", "inputTokens": 20, "outputTokens": 5, "cacheReadTokens": 10, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T02:00:05.000Z", "agent": "codex", "model": null, "sessionId": "session-codex-b", "inputTokens": 12, "outputTokens": 3, "cacheReadTokens": 8, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T02:00:08.000Z", "agent": "codex", "model": null, "sessionId": "session-codex-b", "inputTokens": 4, "outputTokens": 2, "cacheReadTokens": 1, "cacheWriteTokens": 0}
+      ],
+      "eventIdentities": [
+        {"sourceGeneration": "codex-generation-c", "recordOrdinal": 2, "subIndex": 0},
+        {"sourceGeneration": "codex-generation-c", "recordOrdinal": 6, "subIndex": 0},
+        {"sourceGeneration": "codex-generation-c", "recordOrdinal": 9, "subIndex": 0}
+      ],
+      "componentDeltas": [[30, 10, 5, 2], [20, 8, 3, 1], [5, 1, 2, 1]],
+      "transitionDecisions": ["first-zero-baseline-no-emit", "component-delta", "component-decrease-rebase-no-emit", "zero-reset-rebase-no-emit", "component-delta", "decrease-without-last-rebase-no-emit", "invalid-snapshot-baseline-unchanged", "component-delta"],
+      "state": {"sessionKnownAtFirstMetadata": false, "baselineAtFirstMetadata": null, "modelAtFirstMetadata": null, "metadataOccurrences": 2, "metadataPreservedState": 1},
+      "ignored": {"invalidJsonRows": 0, "invalidSnapshots": 1, "invalidDeltas": 0, "componentDuplicateSnapshots": 0, "unknownEventRows": 0, "allZeroSnapshots": 1, "componentDecreaseRebases": 3, "lastUsageMismatches": 0, "lastUsageMissing": 0, "lastUsageMalformed": 0, "modelUnavailableEvents": 3, "staleSourceRecords": 0, "unknownFieldNames": []},
+      "diagnostics": [
+        {"code": "invalid-usage", "occurrences": 1, "affectedRecords": 1, "coverage": "partial"},
+        {"code": "codex-reset-rebase", "occurrences": 3, "affectedRecords": 3, "coverage": "partial"},
+        {"code": "model-unavailable", "occurrences": 3, "affectedRecords": 3, "coverage": "partial"}
+      ],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 0, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 3},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 2, "codex-reset-rebase": 3, "codex-last-usage-mismatch": 1, "model-unavailable": 3},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 3},
+        "sessions": {
+          "session-codex-a": {"baseline": [300, 110, 60, 27], "latestModel": "gpt-synthetic-b", "frontier": {"sourceOrder": 20, "recordOrdinal": 3}},
+          "session-codex-b": {"baseline": [15, 5, 4, 2], "latestModel": null, "frontier": {"sourceOrder": 30, "recordOrdinal": 9}}
         }
+      }
+    },
+    {
+      "fixture": "resume-boundaries.jsonl",
+      "events": [
+        {"ts": "2000-01-01T02:10:01.000Z", "agent": "codex", "model": "gpt-synthetic-b", "sessionId": "session-codex-a", "inputTokens": 12, "outputTokens": 4, "cacheReadTokens": 8, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T02:10:03.000Z", "agent": "codex", "model": null, "sessionId": "session-codex-b", "inputTokens": 6, "outputTokens": 2, "cacheReadTokens": 4, "cacheWriteTokens": 0}
       ],
-      "rawReasoningDeltas": [2, 1, 1],
-      "sameSessionMetadataKeepsBaseline": true,
-      "transitionDecisions": [
-        "first-zero-baseline-no-emit",
-        "component-delta",
-        "component-decrease-rebase-no-emit",
-        "zero-reset-rebase-no-emit",
-        "component-delta",
-        "decrease-without-last-rebase-no-emit",
-        "invalid-snapshot-baseline-unchanged",
-        "component-delta"
+      "eventIdentities": [
+        {"sourceGeneration": "codex-generation-e", "recordOrdinal": 1, "subIndex": 0},
+        {"sourceGeneration": "codex-generation-e", "recordOrdinal": 3, "subIndex": 0}
       ],
-      "ignored": {
-        "allZeroSnapshots": 1,
-        "componentDecreaseRebases": 3,
-        "invalidSnapshots": 1
+      "componentDeltas": [[20, 8, 4, 2], [10, 4, 2, 1]],
+      "transitionDecisions": ["resumed-session-component-delta", "resumed-session-component-delta"],
+      "state": {"sessionKnownAtFirstMetadata": true, "baselineAtFirstMetadata": [300, 110, 60, 27], "modelAtFirstMetadata": "gpt-synthetic-b", "metadataOccurrences": 2, "metadataPreservedState": 2},
+      "ignored": {"invalidJsonRows": 0, "invalidSnapshots": 0, "invalidDeltas": 0, "componentDuplicateSnapshots": 0, "unknownEventRows": 0, "allZeroSnapshots": 0, "componentDecreaseRebases": 0, "lastUsageMismatches": 0, "lastUsageMissing": 1, "lastUsageMalformed": 1, "modelUnavailableEvents": 1, "staleSourceRecords": 0, "unknownFieldNames": []},
+      "diagnostics": [{"code": "model-unavailable", "occurrences": 1, "affectedRecords": 1, "coverage": "partial"}],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 0, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 4},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 2, "codex-reset-rebase": 3, "codex-last-usage-mismatch": 1, "model-unavailable": 4},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 4},
+        "sessions": {
+          "session-codex-a": {"baseline": [320, 118, 64, 29], "latestModel": "gpt-synthetic-b", "frontier": {"sourceOrder": 40, "recordOrdinal": 1}},
+          "session-codex-b": {"baseline": [25, 9, 6, 3], "latestModel": null, "frontier": {"sourceOrder": 40, "recordOrdinal": 3}}
+        }
+      }
+    },
+    {
+      "fixture": "stale.jsonl",
+      "events": [],
+      "eventIdentities": [],
+      "componentDeltas": [],
+      "transitionDecisions": ["stale-snapshot-no-emit"],
+      "state": {"sessionKnownAtFirstMetadata": true, "baselineAtFirstMetadata": [320, 118, 64, 29], "modelAtFirstMetadata": "gpt-synthetic-b", "metadataOccurrences": 1, "metadataPreservedState": 1},
+      "ignored": {"invalidJsonRows": 0, "invalidSnapshots": 0, "invalidDeltas": 0, "componentDuplicateSnapshots": 0, "unknownEventRows": 0, "allZeroSnapshots": 0, "componentDecreaseRebases": 0, "lastUsageMismatches": 0, "lastUsageMissing": 0, "lastUsageMalformed": 0, "modelUnavailableEvents": 0, "staleSourceRecords": 3, "unknownFieldNames": []},
+      "diagnostics": [{"code": "codex-stale-source", "occurrences": 3, "affectedRecords": 3, "coverage": "partial"}],
+      "coverage": {"complete": false, "skippedRecords": 6, "pendingCalls": 0, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 4},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 2, "codex-reset-rebase": 3, "codex-last-usage-mismatch": 1, "model-unavailable": 4, "codex-stale-source": 3},
+        "coverageTotals": {"skippedRecords": 6, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 4},
+        "sessions": {
+          "session-codex-a": {"baseline": [320, 118, 64, 29], "latestModel": "gpt-synthetic-b", "frontier": {"sourceOrder": 40, "recordOrdinal": 1}},
+          "session-codex-b": {"baseline": [25, 9, 6, 3], "latestModel": null, "frontier": {"sourceOrder": 40, "recordOrdinal": 3}}
+        }
+      }
+    },
+    {
+      "fixture": "metadata-only.jsonl",
+      "events": [],
+      "eventIdentities": [],
+      "componentDeltas": [],
+      "transitionDecisions": [],
+      "state": {"sessionKnownAtFirstMetadata": false, "baselineAtFirstMetadata": null, "modelAtFirstMetadata": null, "metadataOccurrences": 1, "metadataPreservedState": 0},
+      "ignored": {"invalidJsonRows": 0, "invalidSnapshots": 0, "invalidDeltas": 0, "componentDuplicateSnapshots": 0, "unknownEventRows": 0, "allZeroSnapshots": 0, "componentDecreaseRebases": 0, "lastUsageMismatches": 0, "lastUsageMissing": 0, "lastUsageMalformed": 0, "modelUnavailableEvents": 0, "staleSourceRecords": 0, "unknownFieldNames": []},
+      "diagnostics": [],
+      "coverage": {"complete": false, "skippedRecords": 6, "pendingCalls": 0, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 4},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 2, "codex-reset-rebase": 3, "codex-last-usage-mismatch": 1, "model-unavailable": 4, "codex-stale-source": 3},
+        "coverageTotals": {"skippedRecords": 6, "rebasedTransitions": 3, "sourceDiscontinuities": 0, "modelUnavailableEvents": 4},
+        "sessions": {
+          "session-codex-a": {"baseline": [320, 118, 64, 29], "latestModel": "gpt-synthetic-b", "frontier": {"sourceOrder": 40, "recordOrdinal": 1}},
+          "session-codex-b": {"baseline": [25, 9, 6, 3], "latestModel": null, "frontier": {"sourceOrder": 40, "recordOrdinal": 3}},
+          "session-codex-c": {"baseline": null, "latestModel": "gpt-synthetic-a", "frontier": {"sourceOrder": 50, "recordOrdinal": 1}}
+        }
       }
     }
   ]
