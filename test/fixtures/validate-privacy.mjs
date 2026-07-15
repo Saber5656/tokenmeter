@@ -1018,7 +1018,6 @@ function hasIpAddress(value) {
 function hasDomain(value) {
   for (const match of value.matchAll(/\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+([a-z]{2,63})\b/gi)) {
     const candidate = match[0];
-    const suffix = match[1].toLowerCase();
     if (value.slice(Math.max(0, match.index - 2), match.index) === '$.'
       || exactFileTokens.has(candidate)
       || canonicalProtocol.claudeCallDiscriminators.includes(candidate)
