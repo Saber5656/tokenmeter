@@ -87,7 +87,7 @@ tokenmeter は、ローカルで動く AI コーディングエージェント�
 | 言語 | TypeScript 5.x / Node.js >=22.14.0 | `package.json` の `engines` と一致。CI は下限 22.14.0 と 24.x で検証 |
 | CLI | commander | 枯れていて十分 |
 | TUI（hp/viz） | ANSI 直書き + log-update 系の最小構成 | Ink(React) は viz で検討。hp はフレームワーク不要の軽さを優先 |
-| テスト | vitest + 実ログ形式の fixture | adapter は fixture ベースで回帰を防ぐ |
+| テスト | vitest + synthetic protocol fixture | adapter は fixture ベースで回帰を防ぐ |
 | ビルド/配布 | tsup + npm package（publish は別 release gate） | 公開後は `npx @saber5656/tokenmeter` / `npm i -g @saber5656/tokenmeter`。実行 bin は `tokenmeter` |
 
 **デーモンレス方針**: 常駐プロセスを持たない。各実行時にログを incremental scan し、`--watch` はファイル監視で同じ scan を差分駆動する。常駐が要る機能（メニューバー等）は恒久的にスコープ外。
@@ -98,7 +98,7 @@ tokenmeter は、ローカルで動く AI コーディングエージェント�
 
 ```
 ~/.claude/projects/**/*.jsonl ──┐ (read-only)
-                                ├─ adapters ─→ UsageEvent[] ─→ store (~/.tokenmeter/) ─→ query ─→ views
+                                ├─ adapters ─→ ScannedUsageEvent[] ─→ store (~/.tokenmeter/) ─→ query ─→ views
 ~/.codex/sessions/**/*.jsonl ───┘                                                          ├─ meter
                                                                                            ├─ hp
                                                                                            ├─ lens
@@ -111,10 +111,117 @@ tokenmeter は、ローカルで動く AI コーディングエージェント�
 interface AgentAdapter {
   id: 'claude-code' | 'codex' | string;
   detect(): boolean;                          // ログディレクトリの存在確認
-  scan(cursor?: Cursor): ScanResult;          // 前回位置以降の新規イベントのみ返す
+  scan(cursor?: AdapterCursor): ScanResult;   // 前回位置以降の新規イベントのみ返す
 }
-interface ScanResult { events: UsageEvent[]; cursor: Cursor; }
+
+interface SourceCursor {
+  generation: string;                        // content/path を出力しない opaque な物理 file generation
+  mtimeMs: number;                           // 非負 safe integer。identity ではなく snapshot 整合確認用
+  size: number;                              // scan 時の stable stat size
+  offset: number;                            // 最後に処理した完全な JSONL line の byte 境界
+  recordOrdinal: number;                     // 次に読む complete record の generation 内 ordinal
+}
+
+interface AdapterCursor {
+  schemaVersion: 1;
+  sources: Record<string, SourceCursor>;
+  claudeCalls: Record<string, Record<string, ClaudeCallState>>; // sourceKey -> callKey -> state
+  codexSessions: Record<string, CodexSessionState>;
+  diagnosticTotals: Partial<Record<Exclude<ScanDiagnosticCode, 'pending-call'>, number>>;
+  coverageTotals: {
+    skippedRecords: number;
+    rebasedTransitions: number;
+    sourceDiscontinuities: number;
+    modelUnavailableEvents: number;
+  };
+}
+
+type ClaudeCallState = ClaudePendingCall | ClaudeClosedCall;
+
+interface ClaudePendingCall {
+  status: 'pending';
+  sourceKey: string;                          // adapter-local opaque identity。path は出力しない
+  sessionId: string | null;
+  requestId: string | null;
+  messageId: string;
+  agentId: string | null;
+  isSidechain: boolean | null;
+  model: string | null;
+  inputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  maxOutputTokens: number;
+}
+
+interface ClaudeClosedCall {
+  status: 'emitted' | 'rejected';             // 後続scanでの再emit/revivalを防ぐ tombstone
+  sourceKey: string;
+}
+
+interface CodexSessionState {
+  baseline: readonly [number, number, number, number] | null;
+  latestModel: string | null;                 // scan/file boundary を越えて保持
+  frontier: CodexFrontier | null;
+}
+
+interface CodexFrontier {
+  sourceOrder: number;                        // provider metadataから決定する一意な全順序
+  recordOrdinal: number;                      // source generation 内の0-based record位置
+}
+
+type ScanDiagnosticCode =
+  | 'malformed-row'
+  | 'invalid-usage'
+  | 'claude-call-conflict'
+  | 'pending-call'
+  | 'codex-reset-rebase'
+  | 'codex-last-usage-mismatch'
+  | 'model-unavailable'
+  | 'codex-stale-source'
+  | 'source-discontinuity';
+
+interface ScanDiagnostic {
+  code: ScanDiagnosticCode;
+  occurrences: number;                        // aggregate only。path/row content/real ID は含めない
+  affectedRecords?: number;                   // 算出可能な record diagnostic のみ
+  coverage: 'complete' | 'pending' | 'partial';
+}
+
+interface ScanResult {
+  events: ScannedUsageEvent[];
+  cursor: AdapterCursor;
+  diagnostics: ScanDiagnostic[];
+  coverage: {
+    complete: boolean;
+    skippedRecords: number;                   // cursor lifetime cumulative
+    pendingCalls: number;                     // cursor内の全Claude sourceに残るcurrent unresolved groups
+    rebasedTransitions: number;               // cursor lifetime cumulative
+    sourceDiscontinuities: number;             // cursor lifetime cumulative
+    modelUnavailableEvents: number;           // cursor lifetime cumulative
+  };
+}
+
+interface EventIdentity {
+  sourceGeneration: string;                  // adapter namespace内で一意。content hashではない
+  recordOrdinal: number;                     // 採用したrowのgeneration内0-based ordinal
+  subIndex: number;                          // 1 recordから複数eventを出す場合の0-based位置
+}
+
+interface ScannedUsageEvent {
+  identity: EventIdentity;
+  usage: UsageEvent;
+}
 ```
+
+Cursor は source の `generation` / `mtimeMs` / `size` / `offset` / `recordOrdinal`、Claude の pending/emitted/rejected call state、Codex の stable-session baseline/model/frontier、非 pending diagnostic と coverage の累積件数を原子的に永続化する。永続状態の正本はこの public `AdapterCursor` だけで、再開に必要な隠れた Map/Set/sequence を実装内へ持たない。v1 はrootから各nested unionまでexact schemaとし、未知/欠落field、不正tag、余分なhidden stateをfail closedで拒否する。`baseline` / `frontier` の合法な `null` はJSON round-trip後も`null`のまま保持する。未知の `schemaVersion` は migration または fail closed とし、黙って空 cursor に戻さない。
+
+`0 <= offset <= size` と全 cursor counter の非負 safe integer を必須とする。`recordOrdinal` は次に読む complete record の ordinal であり、末尾の不完全 JSONL line では offset と ordinal のどちらも進めない。これにより再起動後も既読部分を読み直さず同じ `EventIdentity` を再生成できる。scan 前後の metadata が変化した場合は、その attempt の event と cursor を両方破棄して bounded retry し、異なる snapshot を混ぜない。
+
+同一 generation の追記は offset/ordinal から読む。mtime だけの変化を rotation とみなさない。generation が変わる、`size < offset`、または complete record 数が `recordOrdinal` より後退した場合は source discontinuity とし、旧 generation に属する Claude の pending/emitted/rejected state をすべて破棄する。complete record 数だけが後退する条件は、同一generationかつ`size >= offset`の独立scenarioで固定する。v1 は重複課金の回避を優先し、検出時点ですでに存在する新 generation の byte と record 数を baseline として skipし、`source-discontinuity` を lifetime 累積して coverage を partial にする。損失なく再読込する dedupe/recovery は Issue #5 で設計する。
+
+各scanの `diagnostics` は public `ScanDiagnostic[]` そのものを返し、`occurrences` は同じ code の当該scan件数、`affectedRecords` はその判定を直接起こしたrecordへ帰属できる場合だけ付ける。source metadata transitionである `source-discontinuity` では省略する。検出側はstate変更だけを行い、public diagnostic、`diagnosticTotals`、`coverageTotals` は1回のfinalizationでそれぞれ一度だけ更新する。`coverageTotals` は `diagnosticTotals` から一意に導出し、`skippedRecords = malformed-row + invalid-usage + claude-call-conflict + codex-stale-source`、`rebasedTransitions = codex-reset-rebase`、`sourceDiscontinuities = source-discontinuity`、`modelUnavailableEvents = model-unavailable` とする。cursor load時に両者が一致しなければfail closedし、自動修復しない。`codex-last-usage-mismatch` はcoverageを汚さず、`pending-call` は永続化しない。pendingの`occurrences`はcursor全体の現在値、`affectedRecords`は当該scanで読み、終了時にもpendingであるcallに属するrecord数とする。同一source・別sourceを問わず継承だけのpendingへrecord帰属を捏造しない。
+
+`ScanResult.coverage.complete` は現在の pending、過去を含む malformed/invalid/stale skip、counter rebase、source discontinuity、または model unavailable が1件でもあれば `false` とする。解決済み pending は complete を恒久的に汚さず、`codex-last-usage-mismatch` だけなら authoritative component delta が有効なので usage coverage は complete のままとする。diagnostic は集約件数と理由だけを返し、raw row、絶対パス、source key、実 ID を UI/store event に複製しない。
 
 ### 5.2 UsageEvent（統一スキーマ）
 
@@ -133,6 +240,8 @@ interface UsageEvent {
 }
 ```
 
+`UsageEvent` は値オブジェクトであり、payload equality は identity ではない。adapter namespace と `EventIdentity` の組だけを保存上の冪等keyとする。同じ正規化値でも別 source generation/record から観測した2件は別eventとして保存し、同じ identity の crash replay だけを dedupe する。identity は payload/content hash、raw row、絶対パスから生成せず、UI と料金集計には露出させない。
+
 4カテゴリは非重複とし、表示・合計・料金計算では次だけを足す。
 
 ```text
@@ -146,7 +255,7 @@ total observed tokens = inputTokens + cacheReadTokens + cacheWriteTokens + outpu
 | `ts` | terminal assistant row の `timestamp` |
 | `model` | `message.model`。欠落時は `null` |
 | `sessionId` | row の `sessionId` |
-| `project` | source file の project slug。絶対パスは保持しない |
+| `project` | source directory metadata から抽出した project slug。絶対パスは保持しない |
 | `inputTokens` | `message.usage.input_tokens` |
 | `outputTokens` | `message.usage.output_tokens` |
 | `cacheReadTokens` | `message.usage.cache_read_input_tokens` |
@@ -154,15 +263,17 @@ total observed tokens = inputTokens + cacheReadTokens + cacheWriteTokens + outpu
 
 `message.usage` は API response 単位の値だが、JSONL の1行が必ず1 response ではない。同じ call identity に対して streaming snapshot と同一行の再掲があるため、物理 file order で group 化する。
 
-call boundary は adapter cursor が持つ source-file identity と、row 上の `sessionId` / `requestId` / `message.id` / `agentId` / `isSidechain` の組み合わせで判定する。source の絶対パスは UsageEvent に出さない。
+call boundary は adapter cursor が持つ source-file identity と、row 上の `sessionId` / `requestId` / `message.id` / `agentId` / `isSidechain` の組み合わせで判定する。同じ row-side tuple でも source が異なれば別 call、同じ source の次回 incremental scan なら同一 pending call とする。tuple keyは各scalarの型tagと順序を含むcanonical JSON encodingとし、delimiter連結や暗黙の `String()` coercionは禁止する。missing nullable fieldは明示的な`null`へ正規化し、delimiterを含むstring、`null`、空stringを衝突させない。call keyはcursor内部専用でUIへ出さない。source の絶対パスは UsageEvent に出さず、project slug だけを allowlisted metadata として抽出する。
 
 1. 同一 group の input/cache/model/request identity が一定で、`output_tokens` が非減少であることを確認する。
-2. `stop_reason != null` の terminal snapshot を採用し、同一 terminal row の再掲を dedupe して1件だけ emit する。
-3. terminal 未到達 group は cursor state に保留し、中間 snapshot を先に emit しない。
-4. counter が非負 safe integer でない、group 内の固定 field が競合する、または terminal output が最大でない group は malformed として skip する。call 内で model/cache が変わる fallback/retry も黙って collapse せず例外扱いにする。
+2. `stop_reason != null` の terminal snapshot を採用して emitted tombstone を cursor に残す。同一scan内だけでなく次回scanに terminal row が再掲されても emit しない。
+3. terminal 未到達 group は pending state に保留し、中間 snapshot を先に emit しない。後続scanでterminalに到達したら emittedへ遷移する。
+4. counter が非負 safe integer でない、group 内の固定 field が競合する、または terminal output が最大でない group は rejected tombstone として残す。後続scanのcontinuationで復活させない。call 内で model/cache が変わる fallback/retryも黙ってcollapseしない。
 5. unknown field（`server_tool_use` 等）は合計へ加えない。malformed / unknown row は後続 group に影響させない。
 
-Claude Code の compact marker は 2026-07-11 の調査 corpus では構造的に観測できず、形式未確定である。free text、summary、token 数の変化から推測せず、structural evidence が得られるまで compact/eviction event を emit しない。
+model、input、cache write、cache read、output非減少の各invariantは、1組につき1条件だけを破る独立synthetic pairで固定する。複数条件を同時に変えたfixtureだけでcomparatorを検証しない。
+
+Claude Code の compact structure は未検証である。本taskでは provider を起動せず private source も調査しない。free text、summary、token 数の変化から shape を推測せず、compact/eviction event は emit しない。
 
 #### Codex の変換規則
 
@@ -180,7 +291,7 @@ reasoning_output_tokens // output_tokens の内数
 | UsageEvent | 累積 snapshot 間の delta からの変換 |
 |---|---|
 | `ts` | current token-count row の `timestamp` |
-| `model` | 同一 session で直前の `turn_context.payload.model`。欠落時は `null` |
+| `model` | 同一 session で最後に観測した `turn_context.payload.model`。scan/file boundary を越えて cursor に保持し、未観測なら `null` |
 | `sessionId` | `session_meta.payload.id` |
 | `inputTokens` | `delta.input_tokens - delta.cached_input_tokens` |
 | `outputTokens` | `delta.output_tokens`（reasoning を再加算しない） |
@@ -189,15 +300,19 @@ reasoning_output_tokens // output_tokens の内数
 
 snapshot は4 component が非負 safe integer、`cached_input_tokens <= input_tokens`、`reasoning_output_tokens <= output_tokens` のときだけ valid とする。`model_provider` は model 名として使わない。
 
-baseline は source file ではなく stable `sessionId` ごとに保持し、resume で別 rollout file に続いても引き継ぐ。新しい `sessionId` だけが first-sample rule を開始し、`session_meta` の出現だけでは既存 baseline を無条件に捨てない。
+baseline と latest model は source file ではなく stable `sessionId` ごとに cursor へ保持し、resume で別 rollout file または次回 scan に続いても引き継ぐ。新しい `sessionId` だけが first-sample rule を開始し、`session_meta` の出現だけでは既存 state を無条件に捨てない。
 
-1. session の最初の valid snapshot は zero baseline との差分を使う。全 component が0なら emit しない。
-2. component が前回と同一なら `total_tokens` / `last_token_usage` が違っても emit しない。
-3. 全 component が非減少なら component-wise delta を正規化する。delta 自体が subset 条件を満たさない場合は skip し、baseline を進めない。
-4. component が減少したら counter epoch の切替として current を新 baseline にし、その row は emit しない。current 累積値の再掲も `last_token_usage` の代替 emit も行わない。
-5. malformed snapshot は skip し、baseline を進めない。未知 event / field は無視する。
+複数sourceのmerge順は discovery順やmtimeに依存させない。Issue #7 は provider metadata から session 内で一意な非負 `sourceOrder` を決定し、同一source内の `recordOrdinal` と合わせた辞書順positionを使う。決定不能または同順位ならscan全体をfail closedする。session cursorのfrontier以下のpositionは stale として emitせず、そこに含まれる `turn_context` も baseline/latest model/frontier を変更しない。後から発見した古いsourceを再生するsynthetic caseでこの規則を固定する。
 
-`last_token_usage` は component delta の検証と初期 baseline の補助にだけ使う。同一 snapshot の再掲でも値が残り得るため、通常の changed snapshot や reset row の UsageEvent source にしてはならない。
+1. session の最初の valid snapshot は必ず zero baseline との差分を使う。全 component が0なら emit しない。
+2. component が前回と同一なら derived delta は0であり、`total_tokens` / `last_token_usage` が違っても emit しない。
+3. 全 component が非減少なら component-wise delta を正規化する。delta 自体が subset 条件を満たさない場合は skip し、baseline を進めず `invalid-usage` diagnostic を返す。
+4. component が減少したら counter epoch の切替として current を新 baseline にし、その row は emit しない。current 累積値の再掲も `last_token_usage` の代替 emit も行わず、`codex-reset-rebase` diagnostic で coverage を partial とする。
+5. malformed snapshot/row は skip して baseline を進めず、aggregate diagnostic で coverage を partial とする。未知 event / field は無視する。
+
+`last_token_usage` は validation evidence にだけ使い、delta や baseline の source にはしない。first snapshot では current component（zero baseline との差分）、通常の changed snapshot では derived component delta と比較する。valid な `last_token_usage` が一致しなくても authoritative な cumulative component delta を emit して baseline を進め、`codex-last-usage-mismatch` warning を返す。欠落または malformed でも cumulative snapshot が valid なら同じ処理を続ける。同一 snapshot の再掲は derived delta 0 のため emit せず、reset/decrease row は常に rebase-only とする。
+
+synthetic replay は valid な changed cumulative snapshot に対する `last_token_usage` 欠落と semantic malformed を別recordで直接検証し、どちらもcumulative deltaをemitして最終baselineまで進むことをcursor evidenceで確認する。resume判定とmissing/malformed evidence集計は独立させ、persist済みsessionの最初のaccepted changed snapshotでも両evidenceを失わない。last usageを必須化する実装、delta sourceへ昇格する実装、またはresume branchでevidenceを隠す実装はmutationで失敗させる。
 
 `normalizedModel` は UsageEvent へ追加しない。canonical event には観測した raw model または `null` だけを保存し、pricing/query 層が更新可能な mapping から必要時に派生する。これにより schema と model table の更新周期を分離する。
 
@@ -211,11 +326,44 @@ interface ContextBlock {
 }
 ```
 
-**token 按分方式**: ブロック単位の正確な token 数はログに無い。各ブロックの文字数比で、そのターンの実測 `inputTokens` 合計を按分する。「実測合計は正確・内訳は近似」と UI に明示し、tokenizer 依存を持たない（§2 の判断）。
+**token 按分方式**: ブロック単位の正確な token 数はログに無い。各ブロックの文字数比で、そのターンの実測 input-side total（`inputTokens + cacheReadTokens + cacheWriteTokens`）を按分する。cache hit/write もそのターンの prompt context なので除外しない。「input-side 実測合計は正確・内訳は近似」と UI に明示し、tokenizer 依存を持たない（§2 の判断）。
 
 ### 5.4 ストア
 
-- `~/.tokenmeter/` に append-only JSONL + adapter ごとの cursor ファイル（scan 済みファイルの mtime/size/offset）
+- `~/.tokenmeter/` に append-only JSONL + adapter ごとの versioned cursor ファイル（source generation/mtime/size/offset/record ordinal、Claude全call status、Codex stable-session baseline/latest model/frontier、diagnostic/coverage totals）
+- Issue #5 は `{identity, usage}` のdurable appendと対応cursor更新を1つのrecoverable transactionとして扱う。event persistence成功前にcursorを進めず、crash後は同じidentityを再生成してidentityだけでidempotent dedupeする。同値payload・異identityは両方保存する
+
+```ts
+interface StoreBatchBegin {
+  schemaVersion: 1;
+  adapterId: string;
+  batchId: string;
+  baseCursorRevision: number;
+  sourceGenerations: Record<string, string>;  // nextCursorの全source key/generationをevent append前に予約・fsync
+}
+
+interface StoreBatchReady extends StoreBatchBegin {
+  events: ScannedUsageEvent[];
+  nextCursor: AdapterCursor;
+}
+
+interface CommittedBatchMarker {
+  adapterId: string;
+  batchId: string;
+  baseCursorRevision: number;
+  committedCursorRevision: number;            // baseCursorRevision + 1
+}
+
+interface CursorEnvelope {
+  revision: number;
+  lastCommittedBatch: CommittedBatchMarker | null;
+  cursor: AdapterCursor;
+}
+```
+
+transactionは `durable begin → stable scan → durable ready → identity-based event append + fsync → atomic cursor replace + file/directory fsync → durable commit` の順に限定する。begin前のcrashはevent/cursorへ影響せず、begin後/ready前の復旧は同じ`batchId`と予約済みsource mapを再利用してscanし直し、ready後はsourceを再読せずWAL内のexact events/next cursorを再適用する。fresh/loadedの`begin` WALはexact 6-field envelope、schema/adapter/batch/base revision、予約mapの値域と一意性を検証してからだけ書込みまたはreadyへの置換を行う。complete contractを受け取る復旧入口ではgenerated beginとfull ready candidateのpreflightを最初のbegin書込みより前に完了する。復旧入口ではさらに既存durable stateを検証し、全保存eventをexact `{identity, usage}` shape・公開schema・adapter namespace・再計算storage keyへ照合する。cursor revision 0ではmarkerを`null`、revision 1以上ではmarkerをexact 4-field shape、同一adapter、`committedCursorRevision == baseCursorRevision + 1 == envelope revision`とする。合法な前回markerは次batchでも有効で、current batchの適用済み判定だけがmarker identityとexact `nextCursor`を比較する。marker、source予約map、cursorのJSON構造比較はobject key orderに依存せず、exact key setとarray orderを保持する。永続化済み`ready` WALは続いて、event append/dedupeより前にexact envelope shape、schema/adapter/batch/base revision、公開cursor、予約mapの一意性と`nextCursor.sources`との完全一致、source削除、全event shape/identity/usageと予約所属、既存durable eventとのconflictを副作用なしで再検証する。不整合時はWAL、events、cursor、commit countを一切変更せずfail closedする。eventが0件でもcursorを進めるscanはtransactionを省略しない。同じidentity・同じusageはskipし、同じidentity・異なるusageはcorruptionとしてfail closedする。全eventがdurableになる前にcursorを進めない。
+
+適用済み判定は`batchId`単独ではなく、adapter、batch ID、base revision、committed revision（base + 1）のmarkerとexact `nextCursor`がすべて一致する場合だけ成功する。同じ`batchId`を別revisionで再利用しても別transactionとして扱い、marker一致・cursor不一致はcorruptionとしてfail closedする。1 adapterにつきoutstanding batchは1つとし、`baseCursorRevision`不一致を拒否する。`batchId`はstore transaction markerの一部であり、EventIdentityやcontent hashの代用にはしない。Issue #3 のpure state-machine harnessは7つの固定crash pointそれぞれについて復旧前のWAL phase、durable event集合、cursor envelope、commit countをexact assertionしてから最終収束を検証する。同値usage・異identity、同identity・異usage、zero-event、source予約不一致も固定し、実filesystem上のWAL/fsync/atomic replace実装はIssue #5で行う。
 - SQLite は v1 では採用しない。ccusage が生 JSONL 再 scan で実用速度を出している実績があり、incremental cursor を足せば十分。性能課題が出た時点で v2 の検討事項とする
 - 料金表: 同梱 `pricing.json`（主要モデルの USD 単価: input / output / cache read / cache write）。`--pricing <path|url>` で LiteLLM `model_prices_and_context_window.json` 互換データに差し替え可能
 
@@ -261,7 +409,7 @@ $ tokenmeter lens --session <id> / --project <slug>
 
 - TUI 全画面。context window を 100% 積み上げバー + ブロックリストで表示し、新規メッセージで更新
 - window limit はモデル別テーブル（pricing.json に併載）から取得。limit 接近で警告色
-- **eviction 表示**: Claude Code compact の structural shape は未観測で、controlled `/compact` 検証の実施方針は人間判断待ち。shape を確定するまでは推測表示せず「limit までの残り」だけを表示する
+- **eviction 表示**: Claude Code compact の structural shape は未検証。private sourceを調べたり推測表示したりせず、v1 は「limit までの残り」だけを表示する
 
 ### 6.5 config（`~/.tokenmeter/config.json`）
 
@@ -308,19 +456,21 @@ Local-first token & context observability for AI agents.
 | 優先度 | リスク | 検証・対処 |
 |---|---|---|
 | P0 | Codex `total_token_usage` の意味論（累積か差分か、`reasoning_output_tokens` の重複計上） | Issue #3 で解決。4 component の累積差分を使い、reasoning は output の内数、`total_tokens` は非 authoritative とする（§5.2） |
-| P0 | Codex ログからの model 名取得可否 | Issue #3 で解決。直前の `turn_context.payload.model` を使い、取得不能時は推測せず `null` とする |
-| P1 | ブロック按分近似の誤差が lens の説得力を損なう | 「実測合計は正確・内訳は近似」を UI に常時明示。ターン合計と実測の突合テスト |
+| P0 | Codex ログからの model 名取得可否 | Issue #3 で解決。同一 session で最後に観測した `turn_context.payload.model` を scan/file boundary 越しに使い、取得不能時は推測せず `null` とする |
+| P1 | ブロック按分近似の誤差が lens の説得力を損なう | 「input-side 実測合計は正確・内訳は近似」を UI に常時明示。`inputTokens + cacheReadTokens + cacheWriteTokens` と按分合計の突合テスト |
 | P1 | 料金表の陳腐化（新モデル追従） | LiteLLM 互換の外部差し替え口 + 単価不明モデルは「未計上」を明示（黙って $0 にしない） |
 | P2 | ログ肥大時の scan 性能 | incremental cursor（§5.4）。ベンチは 10 万イベントで計測 |
 | P2 | Claude Code / Codex のログ形式変更 | adapter を fixture テストで固定し、形式変更を CI で検知 |
 
-**実ログ確認済み evidence（2026-07-11, aggregate-only）**:
+**Issue #3 evidence boundary**:
 
-- Claude Code: 複数 file/session の structural audit で、同一 call の identical/progressive usage rows と terminal snapshot を確認した。単純な JSONL 行合算はしない
-- Claude Code compact: structural marker は調査 corpus で未観測。未観測を不在と断定せず、controlled `/compact` の human choice が決まるまで検出契約を確定しない
-- Codex: 複数 rollout/session の arithmetic audit で component total の累積性、unchanged repeat、counter decrease、cache/reasoning の包含関係を確認した。`total_tokens` には context-window-sized offset anomaly があり authoritative source から除外した
-- Codex model: token snapshot と直前の `turn_context.payload.model` の stateful association を確認した。provider metadata は model fallback に使わない
-- corpus counts と詳細 evidence は private task record にだけ保存する。repository へ公開する fixture は raw log の masking ではなく allowlist から再構築した synthetic data のみ
+- repository の検証対象は allowlist から構築した synthetic fixture だけとし、validator は別rootを指定できない
+- content read より前に exact inventory、single-link regular file（`nlink === 1`）、fingerprint を検査し、pinned cwdから `O_NOFOLLOW` で開いた同一descriptorだけを読む。hard link、親/file swap、未知entry、symlink、non-regular file、binary/invalid UTF-8を fail closed で拒否する
+- manifestとは独立したcanonical scalar domainとJSONL/expected field grammarを両validatorのcodeに固定し、manifestとfixtureを同時変更するfield/value自己承認mutationも拒否する
+- privacy validatorはraw/decoded JSON key・stringに加え、validator sourceのcomment、regex、string、template static部分、`${...}`内を再帰的に字句解析したsurface、direct object property、bare sensitive identifierを検査する。bounded token stateでstatement/expression/after-value、control headと通常group/call、binaryとpostfix operator、declarationとfunction/class/arrow expression、objectとblock、`else`/`do`、restricted ASI、`async` LineTerminator、optional `catch`、`for await`、`export default`のdeclaration/value boundaryを区別し、regex literalを合法な開始位置だけで認識する。regex bodyとflagsを別に保持し、backslash parityを壊さない単一走査でactive `\.`, hex, Unicode、mode適合時のcode-point/legacy-octal dotだけをdecodeし、exact `[.]` classと同じdomain表現へcanonicalizeする。double-escaped atomは再解釈しない。JavaScript direct propertyはquoted/escaped IdentifierName、colon、shorthand、method、accessor、async/generator、expression-prefix object、static object-binding propertyをpayload-bearing subsetに対して検査する。JSON private payload keyは全禁止domainとし、どちらもcaseとseparatorを除去したcanonical名との完全一致で拒否する。suffix・label・computed property、computed/rest binding、binding target名、class memberをdirect evidenceとして扱わない。generic high-entropy tokenはcharacter class数に依存せず、32文字以上かつShannon entropy 4以上を拒否する。除外はcanonical token単位に限定し、template全体やfile全体をskipしない
+- Claude call discriminatorと全call statusの再開、Codex cumulative delta/model/frontier、opaque event identity、public diagnostics/coverage/cursor evidence、counter rebase、unknown-field evidence、cache/reasoning包含関係を deterministic replay と synthetic mutation で検証する
+- compact structure は未検証として固定し、provider invocation、private source inspection、free-text推測を行わない
+- 実provider fileとのruntime互換性は adapter Issues #6/#7 の責務とし、本taskのsynthetic evidenceから実データ適合を過大に主張しない
 
 ---
 
@@ -329,24 +479,24 @@ Local-first token & context observability for AI agents.
 マイルストーン: **M0 コア（#3–#8）→ M1 meter/hp（#9–#10）→ M2 lens（#11）→ M3 viz（#12）**。§2 の段階リリース方針に対応する。
 
 - **#3 `Spike: confirm usage semantics in Claude Code and Codex session logs`** — ラベル: `spike`, `design`
-  実ログ複数本から、Claude Code の usage（差分値・model 名・compact イベントの形）と Codex の `total_token_usage`（累積/差分、reasoning の重複、model 名の所在）を確定し、UsageEvent スキーマを最終化する。
-  受け入れ条件: フィールド対応表と差分化ルールを Issue コメントに記録し、fixture 用サンプルログ（マスク済み）を `test/fixtures/` に追加。
+  Claude Code と Codex の usage contract（streaming group、cumulative delta、model state、reset、compact未検証境界）を定義し、UsageEvent スキーマを最終化する。
+  受け入れ条件: フィールド対応表、public cursor/identity/diagnostic契約、差分化ルールをIssueコメントに記録し、private sourceを参照せずallowlistから構築したsynthetic fixture、exact schema、mutation harnessを `test/fixtures/` に追加。
 
 - **#4 `Set up CLI scaffold, config loading, and npm packaging`** — ラベル: `infra`
   TypeScript + commander + tsup + vitest の雛形、`~/.tokenmeter/config.json` の読み書き、CI（lint + test）、scoped package identity の metadata 反映（公開・予約は別 gate）。
   受け入れ条件: ローカル pack をインストールした隔離環境で `npx --no-install @saber5656/tokenmeter --help` が動作し、CI が緑、package/bin metadata が承認済み identity と一致する。package は未予約・未公開で、registry 再確認と publish は別の human release gate とする。
 
 - **#5 `Implement usage event store with incremental scan cursors`** — ラベル: `enhancement`
-  append-only JSONL ストアと adapter ごとの cursor（mtime/size/offset）。再実行の冪等性を保証する。
-  受け入れ条件: 同一ログへの再 scan でイベントが重複しない。10 万イベント再集計 < 2s のベンチを test に含む。
+  append-only JSONL ストアと adapter ごとの versioned public cursor。opaque event identityとcursorをatomic/recoverableに保存し、source discontinuity時の冪等性を保証する。
+  受け入れ条件: 同一identityのcrash replayは重複せず、同値payload・異identityは失われない。保存失敗時にcursorが先行しない。10万イベント再集計 < 2s のベンチをtestに含む。
 
 - **#6 `Implement Claude Code adapter`** — ラベル: `enhancement`
   `~/.claude/projects/**/*.jsonl` から UsageEvent への変換。project slug / session / model の抽出を含む。
-  受け入れ条件: fixture 入力で期待イベント列に一致。壊れた行・未知フィールドをスキップしても総和が安定。
+  受け入れ条件: fixture入力で期待event/identity列に一致し、pending/emitted/rejectedをpublic cursorだけで再開する。壊れた行・未知fieldをskipしても総和が安定。
 
 - **#7 `Implement Codex adapter`** — ラベル: `enhancement`
   `~/.codex/sessions/**/rollout-*.jsonl` から UsageEvent への変換。#3 で確定した差分化ルールを実装する。
-  受け入れ条件: fixture 入力で期待イベント列に一致し、累積→差分変換のテストがある。
+  受け入れ条件: fixture入力で期待event/identity列に一致し、累積→差分、missing/malformed last usage、決定的sourceOrder、stale frontierのtestがある。sourceOrderを一意に導出できなければfail closedする。
 
 - **#8 `Add pricing table and cost calculation`** — ラベル: `enhancement`
   同梱 `pricing.json`（cache read/write 単価と context window limit を含む）、`--pricing` での LiteLLM 互換差し替え、単価不明モデルの「未計上」扱い。
@@ -362,7 +512,7 @@ Local-first token & context observability for AI agents.
 
 - **#11 `Implement lens breakdown and reduction suggestions`** — ラベル: `enhancement`
   ブロック按分近似（§5.3）、内訳バー、Top N 消費源、ヒューリスティック削減提案 3 種以上。
-  受け入れ条件: 按分合計が実測ターン合計と一致（±0 保証）。fixture セッションに対する提案のスナップショットテスト。「内訳は近似」の注記が出力に含まれる。
+  受け入れ条件: 按分合計が実測 input-side total（`inputTokens + cacheReadTokens + cacheWriteTokens`）と一致（±0 保証）。fixture セッションに対する提案のスナップショットテスト。「内訳は近似」の注記が出力に含まれる。
 
 - **#12 `Implement viz TUI for live context window observation`** — ラベル: `enhancement`, `ux`
   積み上げバー + ブロックリストの TUI、ファイル監視による更新、limit 接近警告、compact/eviction の検知表示（観測できる範囲に限定）。
