@@ -2397,7 +2397,6 @@ function validateStoreRecoveryContract() {
   duplicateGeneration.sourceGenerations['store-source-b'] = 'source-generation-a';
   duplicateGeneration.nextCursor.sources['store-source-b'] = { generation: 'source-generation-a', mtimeMs: 6000, size: 0, offset: 0, recordOrdinal: 0 };
   const duplicateGenerationState = createStoreRecoveryState();
-  const duplicateGenerationBefore = cloneJson(duplicateGenerationState);
   let duplicateGenerationRejected = false;
   try {
     durableBeginBatch(duplicateGenerationState, duplicateGeneration);
