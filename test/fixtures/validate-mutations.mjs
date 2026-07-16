@@ -61,6 +61,14 @@ function expectFailure(name, mutate, script = 'validate.mjs', fragment = null) {
   results.push(name);
 }
 
+function expectSuccess(name, mutate, script = 'validate.mjs') {
+  const directory = cloneFor(name);
+  mutate(directory);
+  const result = runValidator(directory, script);
+  if (result.status !== 0) throw new Error(`${name} mutation failed: ${result.stdout}${result.stderr}`);
+  results.push(name);
+}
+
 function expectPrivacyRule(name, sentinel, expectedRule) {
   const directory = cloneFor(name);
   fs.appendFileSync(path.join(directory, 'README.md'), `\n${sentinel}\n`, 'utf8');
@@ -312,6 +320,17 @@ try {
   };
   expectFailure('manifest-policy-semantic', changeManifestSourcePolicy, 'validate.mjs', 'manifest:source-policy');
   expectFailure('manifest-policy-privacy', changeManifestSourcePolicy, 'validate-privacy.mjs', 'manifest:source-policy');
+
+  const removeCodexTotalTokens = (directory) => updateText(directory, 'codex-cli/cumulative.jsonl', (text) => text
+    .replace(',"total_tokens":200120', '')
+    .replace(',"total_tokens":30', ''));
+  expectSuccess('codex-total-optional-semantic', removeCodexTotalTokens, 'validate.mjs');
+  expectSuccess('codex-total-optional-privacy', removeCodexTotalTokens, 'validate-privacy.mjs');
+
+  const nullCodexTotalTokens = (directory) => updateText(directory, 'codex-cli/cumulative.jsonl', (text) => text
+    .replace(',"total_tokens":30}}', ',"total_tokens":null}}'));
+  expectSuccess('codex-total-malformed-semantic', nullCodexTotalTokens, 'validate.mjs');
+  expectSuccess('codex-total-malformed-privacy', nullCodexTotalTokens, 'validate-privacy.mjs');
 
   const mutateJsonlFieldGrammar = (directory) => {
     updateJson(directory, 'manifest.json', (value) => {

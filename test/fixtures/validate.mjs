@@ -270,7 +270,8 @@ const canonicalJsonlObjectFields = {
   codexFuturePayload: ['type', 'future_field'],
   codexInfoRequired: ['total_token_usage'],
   codexInfoOptional: ['last_token_usage', 'future_field'],
-  codexUsage: ['input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens', 'total_tokens'],
+  codexUsageRequired: ['input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens'],
+  codexUsageOptional: ['total_tokens'],
 };
 
 const canonicalExpectedObjectFields = {
@@ -487,8 +488,8 @@ function validateClaudeRecord(value, relative, line, errors) {
 }
 
 function validateCodexUsage(value, label, errors) {
-  if (!exactKeys(value, objectFields.codexUsage, [], label, errors)) return;
-  for (const key of objectFields.codexUsage) validateCounter(value[key], `${label}.${key}`, errors);
+  if (!exactKeys(value, objectFields.codexUsageRequired, objectFields.codexUsageOptional, label, errors)) return;
+  for (const key of objectFields.codexUsageRequired) validateCounter(value[key], `${label}.${key}`, errors);
 }
 
 function validateCodexRecord(value, relative, line, errors) {
