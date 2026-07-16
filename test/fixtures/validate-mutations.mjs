@@ -286,6 +286,33 @@ try {
     });
   }, 'validate-privacy.mjs', 'canonical protocol domain mismatch');
 
+  const addManifestRootKey = (directory) => {
+    updateJson(directory, 'manifest.json', (value) => {
+      value.syntheticRootNote = 'synthetic prose';
+      return value;
+    });
+  };
+  expectFailure('manifest-root-extra-key-semantic', addManifestRootKey, 'validate.mjs', 'manifest:root-schema');
+  expectFailure('manifest-root-extra-key-privacy', addManifestRootKey, 'validate-privacy.mjs', 'manifest:root-schema');
+
+  const removeManifestSourcePolicy = (directory) => {
+    updateJson(directory, 'manifest.json', (value) => {
+      delete value.sourcePolicy;
+      return value;
+    });
+  };
+  expectFailure('manifest-source-policy-missing-semantic', removeManifestSourcePolicy, 'validate.mjs', 'manifest:root-schema');
+  expectFailure('manifest-source-policy-missing-privacy', removeManifestSourcePolicy, 'validate-privacy.mjs', 'manifest:root-schema');
+
+  const changeManifestSourcePolicy = (directory) => {
+    updateJson(directory, 'manifest.json', (value) => {
+      value.sourcePolicy = 'Synthetic-only prose is permitted.';
+      return value;
+    });
+  };
+  expectFailure('manifest-policy-semantic', changeManifestSourcePolicy, 'validate.mjs', 'manifest:source-policy');
+  expectFailure('manifest-policy-privacy', changeManifestSourcePolicy, 'validate-privacy.mjs', 'manifest:source-policy');
+
   const mutateJsonlFieldGrammar = (directory) => {
     updateJson(directory, 'manifest.json', (value) => {
       value.jsonlObjectFields.claudeUsageOptional.push('nickname');
@@ -1326,12 +1353,12 @@ try {
   }, 'claude-code/streaming.jsonl', 'json-key', 'private-payload-key');
 
   const rootPrivatePayloadKey = ['Con', 'tent'].join('');
-  expectPrivacyMutationRule('privacy-json-private-payload-key-root-case', (directory) => {
+  expectFailure('manifest-root-private', (directory) => {
     updateJson(directory, 'manifest.json', (value) => {
       value[rootPrivatePayloadKey] = 'synthetic prose';
       return value;
     });
-  }, 'manifest.json', 'json-key', 'private-payload-key');
+  }, 'validate-privacy.mjs', 'manifest:root-schema');
 
   for (const [name, fragments] of [
     ['case-prompt', ['Pro', 'mpt']],

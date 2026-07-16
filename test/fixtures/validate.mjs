@@ -231,6 +231,30 @@ const canonicalSyntheticPolicy = {
   intentionalInvalidJsonRows: 2,
 };
 
+const canonicalManifestRootKeys = [
+  'schemaVersion',
+  'synthetic',
+  'construction',
+  'sourcePolicy',
+  'inventory',
+  'dataFiles',
+  'validators',
+  'jsonlObjectFields',
+  'expectedObjectFields',
+  'diagnosticCoverageMap',
+  'syntheticSources',
+  'replayPlan',
+  'allowedProtocolValues',
+  'syntheticValuePolicy',
+  'sourceCursorContract',
+  'storeRecoveryContract',
+  'intentionalInvalidCases',
+  'forbiddenData',
+  'compactPolicy',
+  'reviewPolicy',
+];
+const canonicalManifestSourcePolicy = 'No raw log line or masked derivative is permitted.';
+
 const canonicalJsonlObjectFields = {
   claudeAssistantRoot: ['type', 'timestamp', 'sessionId', 'requestId', 'agentId', 'isSidechain', 'message'],
   claudeFutureRoot: ['type', 'timestamp', 'sessionId', 'future_field'],
@@ -352,6 +376,13 @@ function assertCanonicalFieldMap(value, label) {
 }
 
 const manifest = JSON.parse(fixtureTexts.get('manifest.json'));
+if (!manifest
+  || typeof manifest !== 'object'
+  || Array.isArray(manifest)
+  || !same(Object.keys(manifest).sort(), [...canonicalManifestRootKeys].sort())) {
+  throw new Error('manifest:root-schema');
+}
+if (manifest.sourcePolicy !== canonicalManifestSourcePolicy) throw new Error('manifest:source-policy');
 assertEqual(manifest.allowedProtocolValues, canonicalProtocol, 'canonical protocol domain');
 assertEqual(manifest.syntheticValuePolicy, canonicalSyntheticPolicy, 'canonical synthetic policy');
 assertCanonicalFieldMap(canonicalJsonlObjectFields, 'canonical JSONL object field grammar');
