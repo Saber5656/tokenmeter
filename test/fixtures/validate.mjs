@@ -1781,7 +1781,6 @@ function beginWal(contract) {
     adapterId: contract.adapterId,
     batchId: contract.batchId,
     baseCursorRevision: contract.baseCursorRevision,
-    sourceGenerations: cloneJson(contract.sourceGenerations),
   };
 }
 
@@ -1789,6 +1788,7 @@ function readyWal(contract) {
   return {
     ...beginWal(contract),
     phase: 'ready',
+    sourceGenerations: cloneJson(contract.sourceGenerations),
     events: cloneJson(contract.events),
     nextCursor: cloneJson(contract.nextCursor),
   };
@@ -1844,7 +1844,7 @@ function assertSourceGenerationReservations(sourceGenerations) {
 }
 
 function assertBeginWalRecoverable(batch) {
-  assertExactObject(batch, ['phase', 'schemaVersion', 'adapterId', 'batchId', 'baseCursorRevision', 'sourceGenerations'], 'store begin WAL');
+  assertExactObject(batch, ['phase', 'schemaVersion', 'adapterId', 'batchId', 'baseCursorRevision'], 'store begin WAL');
   if (batch.phase !== 'begin'
     || batch.schemaVersion !== canonicalStoreRecoveryContract.schemaVersion
     || !protocol.eventAgents.includes(batch.adapterId)
@@ -1854,7 +1854,6 @@ function assertBeginWalRecoverable(batch) {
     || batch.baseCursorRevision >= Number.MAX_SAFE_INTEGER) {
     throw new Error('store begin WAL invalid');
   }
-  assertSourceGenerationReservations(batch.sourceGenerations);
 }
 
 function assertCommittedMarkerAtRevision(marker, revision, adapterId) {
@@ -2215,12 +2214,11 @@ function validateStoreRecoveryContract() {
   reorderedMultiSourceContract.sourceGenerations = Object.fromEntries(
     Object.entries(reorderedMultiSourceContract.sourceGenerations).reverse(),
   );
+  durableReadyBatch(multiSourceState, reorderedMultiSourceContract);
   assertCondition(
-    JSON.stringify(multiSourceState.wal.sourceGenerations) !== JSON.stringify(reorderedMultiSourceContract.sourceGenerations)
-      && sameJsonStructure(multiSourceState.wal.sourceGenerations, reorderedMultiSourceContract.sourceGenerations),
+    sameJsonStructure(multiSourceState.wal.sourceGenerations, reorderedMultiSourceContract.sourceGenerations),
     'store reordered multi-source reservation evidence',
   );
-  durableReadyBatch(multiSourceState, reorderedMultiSourceContract);
   recoverPreparedBatch(multiSourceState, reorderedMultiSourceContract);
   assertEqual(multiSourceState.commitCount, 1, 'store reordered multi-source reservation commits');
 
@@ -2403,11 +2401,12 @@ function validateStoreRecoveryContract() {
   let duplicateGenerationRejected = false;
   try {
     durableBeginBatch(duplicateGenerationState, duplicateGeneration);
+    durableReadyBatch(duplicateGenerationState, duplicateGeneration);
   } catch (error) {
     duplicateGenerationRejected = error.message === 'store source generation reservation is not unique';
   }
   assertCondition(duplicateGenerationRejected, 'store rejects duplicate source generation reservations');
-  assertEqual(duplicateGenerationState, duplicateGenerationBefore, 'store rejects duplicate source generation reservations before write');
+  assertEqual(duplicateGenerationState.wal, beginWal(duplicateGeneration), 'store rejects duplicate source generation reservations before ready');
 
   const reusedState = createStoreRecoveryState();
   recoverPreparedBatch(reusedState, contract);

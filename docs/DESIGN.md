@@ -339,10 +339,10 @@ interface StoreBatchBegin {
   adapterId: string;
   batchId: string;
   baseCursorRevision: number;
-  sourceGenerations: Record<string, string>;  // nextCursorの全source key/generationをevent append前に予約・fsync
 }
 
 interface StoreBatchReady extends StoreBatchBegin {
+  sourceGenerations: Record<string, string>;  // stable scanで確定したnextCursor.sourcesと完全一致するmap
   events: ScannedUsageEvent[];
   nextCursor: AdapterCursor;
 }
@@ -361,7 +361,11 @@ interface CursorEnvelope {
 }
 ```
 
+`StoreBatchBegin` は意図・schema・base revisionだけをdurableにする。stable scanで得たsource mapは`StoreBatchReady`へ進める直前に確定し、`nextCursor.sources`と完全一致させる。
+
 transactionは `durable begin → stable scan → durable ready → identity-based event append + fsync → atomic cursor replace + file/directory fsync → durable commit` の順に限定する。begin前のcrashはevent/cursorへ影響せず、begin後/ready前の復旧は同じ`batchId`と予約済みsource mapを再利用してscanし直し、ready後はsourceを再読せずWAL内のexact events/next cursorを再適用する。fresh/loadedの`begin` WALはexact 6-field envelope、schema/adapter/batch/base revision、予約mapの値域と一意性を検証してからだけ書込みまたはreadyへの置換を行う。complete contractを受け取る復旧入口ではgenerated beginとfull ready candidateのpreflightを最初のbegin書込みより前に完了する。復旧入口ではさらに既存durable stateを検証し、全保存eventをexact `{identity, usage}` shape・公開schema・adapter namespace・再計算storage keyへ照合する。cursor revision 0ではmarkerを`null`、revision 1以上ではmarkerをexact 4-field shape、同一adapter、`committedCursorRevision == baseCursorRevision + 1 == envelope revision`とする。合法な前回markerは次batchでも有効で、current batchの適用済み判定だけがmarker identityとexact `nextCursor`を比較する。marker、source予約map、cursorのJSON構造比較はobject key orderに依存せず、exact key setとarray orderを保持する。永続化済み`ready` WALは続いて、event append/dedupeより前にexact envelope shape、schema/adapter/batch/base revision、公開cursor、予約mapの一意性と`nextCursor.sources`との完全一致、source削除、全event shape/identity/usageと予約所属、既存durable eventとのconflictを副作用なしで再検証する。不整合時はWAL、events、cursor、commit countを一切変更せずfail closedする。eventが0件でもcursorを進めるscanはtransactionを省略しない。同じidentity・同じusageはskipし、同じidentity・異なるusageはcorruptionとしてfail closedする。全eventがdurableになる前にcursorを進めない。
+
+上記のlegacy表現にかかわらず、現行のwire contractはBeginのexact 5-field envelope（phaseを含む）と、source mapを持つReady envelopeを正とする。
 
 適用済み判定は`batchId`単独ではなく、adapter、batch ID、base revision、committed revision（base + 1）のmarkerとexact `nextCursor`がすべて一致する場合だけ成功する。同じ`batchId`を別revisionで再利用しても別transactionとして扱い、marker一致・cursor不一致はcorruptionとしてfail closedする。1 adapterにつきoutstanding batchは1つとし、`baseCursorRevision`不一致を拒否する。`batchId`はstore transaction markerの一部であり、EventIdentityやcontent hashの代用にはしない。Issue #3 のpure state-machine harnessは7つの固定crash pointそれぞれについて復旧前のWAL phase、durable event集合、cursor envelope、commit countをexact assertionしてから最終収束を検証する。同値usage・異identity、同identity・異usage、zero-event、source予約不一致も固定し、実filesystem上のWAL/fsync/atomic replace実装はIssue #5で行う。
 - SQLite は v1 では採用しない。ccusage が生 JSONL 再 scan で実用速度を出している実績があり、incremental cursor を足せば十分。性能課題が出た時点で v2 の検討事項とする

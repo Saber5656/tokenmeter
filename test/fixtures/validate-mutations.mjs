@@ -920,16 +920,9 @@ try {
     ));
   }, 'validate.mjs', 'store rejects applied cursor with reordered Codex baseline tuple failed');
 
-  expectFailure('store-begin-reservation-order-independent', (directory) => {
-    updateText(directory, 'validate.mjs', (text) => text.replace(
-      '  if (!sameJsonStructure(state.wal, expectedBegin)) {',
-      '  if (JSON.stringify(state.wal) !== JSON.stringify(expectedBegin)) {',
-    ));
-  }, 'validate.mjs', 'store batch reservation changed during recovery');
-
   expectFailure('store-begin-exact-envelope', (directory) => {
     updateText(directory, 'validate.mjs', (text) => text.replace(
-      "  assertExactObject(batch, ['phase', 'schemaVersion', 'adapterId', 'batchId', 'baseCursorRevision', 'sourceGenerations'], 'store begin WAL');",
+      "  assertExactObject(batch, ['phase', 'schemaVersion', 'adapterId', 'batchId', 'baseCursorRevision'], 'store begin WAL');",
       "  if (!isObject(batch)) throw new Error('store begin WAL invalid');",
     ));
   }, 'validate.mjs', 'store rejects hidden begin WAL state failed');
