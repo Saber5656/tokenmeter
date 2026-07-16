@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 3,
+  "synthetic": true,
+  "cases": [
+    {
+      "fixture": "streaming.jsonl",
+      "events": [
+        {"ts": "2000-01-01T00:00:03.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-a", "inputTokens": 100, "outputTokens": 12, "cacheReadTokens": 30, "cacheWriteTokens": 20},
+        {"ts": "2000-01-01T00:00:04.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-a", "inputTokens": 5, "outputTokens": 4, "cacheReadTokens": 80, "cacheWriteTokens": 0}
+      ],
+      "eventIdentities": [
+        {"sourceGeneration": "claude-generation-a", "recordOrdinal": 2, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-a", "recordOrdinal": 4, "subIndex": 0}
+      ],
+      "state": {"sourceWasKnown": false, "pendingBefore": 0, "pendingAfter": 0, "resolvedPendingGroups": 0, "crossSourceCollisionCount": 0},
+      "ignored": {"invalidJsonRows": 0, "unknownEventRows": 0, "invalidCounterGroups": 0, "conflictingStreamingGroups": 0, "pendingIncompleteGroups": 0, "streamingOrDuplicateRows": 2, "closedCallRows": 1, "unknownFieldNames": ["future_usage_detail"]},
+      "diagnostics": [],
+      "coverage": {"complete": true, "skippedRecords": 0, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {},
+        "coverageTotals": {"skippedRecords": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}}
+      }
+    },
+    {
+      "fixture": "malformed.jsonl",
+      "events": [
+        {"ts": "2000-01-01T00:01:01.500Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-b", "inputTokens": 3, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:01:02.000Z", "agent": "claude-code", "model": null, "sessionId": "session-claude-b", "project": "synthetic-project-b", "inputTokens": 7, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0}
+      ],
+      "eventIdentities": [
+        {"sourceGeneration": "claude-generation-b", "recordOrdinal": 2, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-b", "recordOrdinal": 3, "subIndex": 0}
+      ],
+      "state": {"sourceWasKnown": false, "pendingBefore": 0, "pendingAfter": 1, "resolvedPendingGroups": 0, "crossSourceCollisionCount": 1},
+      "ignored": {"invalidJsonRows": 1, "unknownEventRows": 1, "invalidCounterGroups": 1, "conflictingStreamingGroups": 1, "pendingIncompleteGroups": 1, "streamingOrDuplicateRows": 0, "closedCallRows": 0, "unknownFieldNames": []},
+      "diagnostics": [
+        {"code": "malformed-row", "occurrences": 1, "affectedRecords": 1, "coverage": "partial"},
+        {"code": "invalid-usage", "occurrences": 1, "affectedRecords": 1, "coverage": "partial"},
+        {"code": "claude-call-conflict", "occurrences": 1, "affectedRecords": 1, "coverage": "partial"},
+        {"code": "pending-call", "occurrences": 1, "affectedRecords": 1, "coverage": "pending"}
+      ],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 1, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "claude-call-conflict": 1},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}, "claude-source-b": {"pending": 1, "emitted": 2, "rejected": 2}}
+      }
+    },
+    {
+      "fixture": "pending-inherited-noop.jsonl",
+      "events": [],
+      "eventIdentities": [],
+      "state": {"sourceWasKnown": true, "pendingBefore": 1, "pendingAfter": 1, "resolvedPendingGroups": 0, "crossSourceCollisionCount": 0},
+      "ignored": {"invalidJsonRows": 0, "unknownEventRows": 1, "invalidCounterGroups": 0, "conflictingStreamingGroups": 0, "pendingIncompleteGroups": 1, "streamingOrDuplicateRows": 0, "closedCallRows": 0, "unknownFieldNames": []},
+      "diagnostics": [
+        {"code": "pending-call", "occurrences": 1, "coverage": "pending"}
+      ],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 1, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "claude-call-conflict": 1},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}, "claude-source-b": {"pending": 1, "emitted": 2, "rejected": 2}}
+      }
+    },
+    {
+      "fixture": "pending-continuation.jsonl",
+      "events": [
+        {"ts": "2000-01-01T00:01:07.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-b", "project": "synthetic-project-b", "inputTokens": 9, "outputTokens": 6, "cacheReadTokens": 0, "cacheWriteTokens": 0}
+      ],
+      "eventIdentities": [{"sourceGeneration": "claude-generation-b", "recordOrdinal": 9, "subIndex": 0}],
+      "state": {"sourceWasKnown": true, "pendingBefore": 1, "pendingAfter": 0, "resolvedPendingGroups": 1, "crossSourceCollisionCount": 0},
+      "ignored": {"invalidJsonRows": 0, "unknownEventRows": 0, "invalidCounterGroups": 0, "conflictingStreamingGroups": 0, "pendingIncompleteGroups": 0, "streamingOrDuplicateRows": 1, "closedCallRows": 0, "unknownFieldNames": []},
+      "diagnostics": [],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "claude-call-conflict": 1},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}, "claude-source-b": {"pending": 0, "emitted": 3, "rejected": 2}}
+      }
+    },
+    {
+      "fixture": "terminal-duplicate.jsonl",
+      "events": [],
+      "eventIdentities": [],
+      "state": {"sourceWasKnown": true, "pendingBefore": 0, "pendingAfter": 0, "resolvedPendingGroups": 0, "crossSourceCollisionCount": 0},
+      "ignored": {"invalidJsonRows": 0, "unknownEventRows": 0, "invalidCounterGroups": 0, "conflictingStreamingGroups": 0, "pendingIncompleteGroups": 0, "streamingOrDuplicateRows": 0, "closedCallRows": 1, "unknownFieldNames": []},
+      "diagnostics": [],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "claude-call-conflict": 1},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}, "claude-source-b": {"pending": 0, "emitted": 3, "rejected": 2}}
+      }
+    },
+    {
+      "fixture": "rejected-continuation.jsonl",
+      "events": [],
+      "eventIdentities": [],
+      "state": {"sourceWasKnown": true, "pendingBefore": 0, "pendingAfter": 0, "resolvedPendingGroups": 0, "crossSourceCollisionCount": 0},
+      "ignored": {"invalidJsonRows": 0, "unknownEventRows": 0, "invalidCounterGroups": 0, "conflictingStreamingGroups": 0, "pendingIncompleteGroups": 0, "streamingOrDuplicateRows": 0, "closedCallRows": 1, "unknownFieldNames": []},
+      "diagnostics": [],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "claude-call-conflict": 1},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}, "claude-source-b": {"pending": 0, "emitted": 3, "rejected": 2}}
+      }
+    },
+    {
+      "fixture": "discriminator-matrix.jsonl",
+      "events": [
+        {"ts": "2000-01-01T00:02:00.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:00.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-b", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:00.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:00.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:00.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:00.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:01.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:01.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:02.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0},
+        {"ts": "2000-01-01T00:02:02.000Z", "agent": "claude-code", "model": "claude-synthetic", "sessionId": "session-claude-a", "project": "synthetic-project-c", "inputTokens": 11, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0}
+      ],
+      "eventIdentities": [
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 0, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 1, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 2, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 3, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 4, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 5, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 6, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 7, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 8, "subIndex": 0},
+        {"sourceGeneration": "claude-generation-c", "recordOrdinal": 9, "subIndex": 0}
+      ],
+      "state": {"sourceWasKnown": false, "pendingBefore": 0, "pendingAfter": 0, "resolvedPendingGroups": 0, "crossSourceCollisionCount": 0},
+      "ignored": {"invalidJsonRows": 0, "unknownEventRows": 0, "invalidCounterGroups": 0, "conflictingStreamingGroups": 0, "pendingIncompleteGroups": 0, "streamingOrDuplicateRows": 0, "closedCallRows": 0, "unknownFieldNames": []},
+      "diagnostics": [],
+      "coverage": {"complete": false, "skippedRecords": 3, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "claude-call-conflict": 1},
+        "coverageTotals": {"skippedRecords": 3, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}, "claude-source-b": {"pending": 0, "emitted": 3, "rejected": 2}, "claude-source-c": {"pending": 0, "emitted": 10, "rejected": 0}}
+      }
+    },
+    {
+      "fixture": "streaming-invariant-matrix.jsonl",
+      "events": [],
+      "eventIdentities": [],
+      "state": {"sourceWasKnown": true, "pendingBefore": 0, "pendingAfter": 0, "resolvedPendingGroups": 0, "crossSourceCollisionCount": 0},
+      "ignored": {"invalidJsonRows": 0, "unknownEventRows": 0, "invalidCounterGroups": 0, "conflictingStreamingGroups": 5, "pendingIncompleteGroups": 0, "streamingOrDuplicateRows": 0, "closedCallRows": 0, "unknownFieldNames": []},
+      "diagnostics": [
+        {"code": "claude-call-conflict", "occurrences": 5, "affectedRecords": 5, "coverage": "partial"}
+      ],
+      "coverage": {"complete": false, "skippedRecords": 8, "pendingCalls": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+      "cursorEvidence": {
+        "diagnosticTotals": {"malformed-row": 1, "invalid-usage": 1, "claude-call-conflict": 6},
+        "coverageTotals": {"skippedRecords": 8, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0},
+        "callStatuses": {"claude-source-a": {"pending": 0, "emitted": 2, "rejected": 0}, "claude-source-b": {"pending": 0, "emitted": 3, "rejected": 2}, "claude-source-c": {"pending": 0, "emitted": 10, "rejected": 5}}
+      }
+    }
+  ]
+}

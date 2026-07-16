@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 3,
+  "synthetic": true,
+  "construction": "allowlist-reconstruction",
+  "sourcePolicy": "No raw log line or masked derivative is permitted.",
+  "inventory": {
+    "directories": [
+      "claude-code",
+      "codex-cli"
+    ],
+    "files": [
+      "README.md",
+      "manifest.json",
+      "validate.mjs",
+      "validate-mutations.mjs",
+      "validate-privacy.mjs",
+      "claude-code/discriminator-matrix.jsonl",
+      "claude-code/expected.json",
+      "claude-code/malformed.jsonl",
+      "claude-code/pending-continuation.jsonl",
+      "claude-code/pending-inherited-noop.jsonl",
+      "claude-code/rejected-continuation.jsonl",
+      "claude-code/streaming.jsonl",
+      "claude-code/streaming-invariant-matrix.jsonl",
+      "claude-code/terminal-duplicate.jsonl",
+      "codex-cli/cumulative.jsonl",
+      "codex-cli/expected.json",
+      "codex-cli/metadata-only.jsonl",
+      "codex-cli/reset.jsonl",
+      "codex-cli/resume-boundaries.jsonl",
+      "codex-cli/resume.jsonl",
+      "codex-cli/stale.jsonl"
+    ]
+  },
+  "dataFiles": [
+    "claude-code/streaming.jsonl",
+    "claude-code/malformed.jsonl",
+    "claude-code/pending-inherited-noop.jsonl",
+    "claude-code/pending-continuation.jsonl",
+    "claude-code/terminal-duplicate.jsonl",
+    "claude-code/rejected-continuation.jsonl",
+    "claude-code/discriminator-matrix.jsonl",
+    "claude-code/streaming-invariant-matrix.jsonl",
+    "claude-code/expected.json",
+    "codex-cli/cumulative.jsonl",
+    "codex-cli/resume.jsonl",
+    "codex-cli/reset.jsonl",
+    "codex-cli/resume-boundaries.jsonl",
+    "codex-cli/stale.jsonl",
+    "codex-cli/metadata-only.jsonl",
+    "codex-cli/expected.json"
+  ],
+  "validators": [
+    "validate.mjs",
+    "validate-mutations.mjs",
+    "validate-privacy.mjs"
+  ],
+  "jsonlObjectFields": {
+    "claudeAssistantRoot": ["type", "timestamp", "sessionId", "requestId", "agentId", "isSidechain", "message"],
+    "claudeFutureRoot": ["type", "timestamp", "sessionId", "future_field"],
+    "claudeMessageRequired": ["id", "role", "stop_reason", "usage"],
+    "claudeMessageOptional": ["model"],
+    "claudeUsageRequired": ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens"],
+    "claudeUsageOptional": ["future_usage_detail"],
+    "syntheticMarker": ["synthetic"],
+    "codexRoot": ["timestamp", "type", "payload"],
+    "codexSessionMetadata": ["id", "cli_version", "model_provider"],
+    "codexTurnContext": ["model"],
+    "codexTokenPayload": ["type", "info"],
+    "codexFuturePayload": ["type", "future_field"],
+    "codexInfoRequired": ["total_token_usage"],
+    "codexInfoOptional": ["last_token_usage", "future_field"],
+      "codexUsageRequired": ["input_tokens", "cached_input_tokens", "output_tokens", "reasoning_output_tokens"],
+      "codexUsageOptional": ["total_tokens"]
+  },
+  "expectedObjectFields": {
+    "claudeRoot": ["schemaVersion", "synthetic", "cases"],
+    "codexRoot": ["schemaVersion", "synthetic", "reasoningIsIncludedInOutput", "inputExcludesCacheRead", "cases"],
+    "claudeCase": ["fixture", "events", "eventIdentities", "state", "ignored", "diagnostics", "coverage", "cursorEvidence"],
+    "codexCase": ["fixture", "events", "eventIdentities", "componentDeltas", "transitionDecisions", "state", "ignored", "diagnostics", "coverage", "cursorEvidence"],
+    "event": ["ts", "agent", "model", "sessionId", "project", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
+    "eventIdentity": ["sourceGeneration", "recordOrdinal", "subIndex"],
+    "claudeState": ["sourceWasKnown", "pendingBefore", "pendingAfter", "resolvedPendingGroups", "crossSourceCollisionCount"],
+    "codexState": ["sessionKnownAtFirstMetadata", "baselineAtFirstMetadata", "modelAtFirstMetadata", "metadataOccurrences", "metadataPreservedState"],
+    "claudeIgnored": ["invalidJsonRows", "unknownEventRows", "invalidCounterGroups", "conflictingStreamingGroups", "pendingIncompleteGroups", "streamingOrDuplicateRows", "closedCallRows", "unknownFieldNames"],
+    "codexIgnored": ["invalidJsonRows", "invalidSnapshots", "invalidDeltas", "componentDuplicateSnapshots", "unknownEventRows", "allZeroSnapshots", "componentDecreaseRebases", "lastUsageMismatches", "lastUsageMissing", "lastUsageMalformed", "modelUnavailableEvents", "staleSourceRecords", "unknownFieldNames"],
+    "diagnosticRequired": ["code", "occurrences", "coverage"],
+    "diagnosticOptional": ["affectedRecords"],
+    "coverage": ["complete", "skippedRecords", "pendingCalls", "rebasedTransitions", "sourceDiscontinuities", "modelUnavailableEvents"]
+  },
+  "diagnosticCoverageMap": {
+    "skippedRecords": ["malformed-row", "invalid-usage", "claude-call-conflict", "codex-stale-source"],
+    "rebasedTransitions": ["codex-reset-rebase"],
+    "sourceDiscontinuities": ["source-discontinuity"],
+    "modelUnavailableEvents": ["model-unavailable"]
+  },
+  "syntheticSources": {
+    "claude-source-a": {"kind": "claude-project-log", "projectDirectoryName": "synthetic-project-a"},
+    "claude-source-b": {"kind": "claude-project-log", "projectDirectoryName": "synthetic-project-b"},
+    "claude-source-c": {"kind": "claude-project-log", "projectDirectoryName": "synthetic-project-c"}
+  },
+  "replayPlan": {
+    "claude-code": [
+      {"fixture": "streaming.jsonl", "kind": "claude-streaming", "sourceKey": "claude-source-a", "sourceGeneration": "claude-generation-a", "recordOrdinalStart": 0, "scanOrdinal": 1},
+      {"fixture": "malformed.jsonl", "kind": "claude-malformed-pending", "sourceKey": "claude-source-b", "sourceGeneration": "claude-generation-b", "recordOrdinalStart": 0, "scanOrdinal": 1, "collisionAgainst": "streaming.jsonl"},
+      {"fixture": "pending-inherited-noop.jsonl", "kind": "claude-pending-inherited-noop", "sourceKey": "claude-source-b", "sourceGeneration": "claude-generation-b", "recordOrdinalStart": 8, "scanOrdinal": 2, "continuesFrom": "malformed.jsonl"},
+      {"fixture": "pending-continuation.jsonl", "kind": "claude-pending-continuation", "sourceKey": "claude-source-b", "sourceGeneration": "claude-generation-b", "recordOrdinalStart": 9, "scanOrdinal": 3, "continuesFrom": "pending-inherited-noop.jsonl"},
+      {"fixture": "terminal-duplicate.jsonl", "kind": "claude-terminal-duplicate", "sourceKey": "claude-source-b", "sourceGeneration": "claude-generation-b", "recordOrdinalStart": 10, "scanOrdinal": 4, "continuesFrom": "pending-continuation.jsonl"},
+      {"fixture": "rejected-continuation.jsonl", "kind": "claude-rejected-continuation", "sourceKey": "claude-source-b", "sourceGeneration": "claude-generation-b", "recordOrdinalStart": 11, "scanOrdinal": 5, "continuesFrom": "malformed.jsonl"},
+      {"fixture": "discriminator-matrix.jsonl", "kind": "claude-discriminator-matrix", "sourceKey": "claude-source-c", "sourceGeneration": "claude-generation-c", "recordOrdinalStart": 0, "scanOrdinal": 1, "discriminatorFields": ["sessionId", "requestId", "message.id", "agentId", "isSidechain"]},
+      {"fixture": "streaming-invariant-matrix.jsonl", "kind": "claude-streaming-invariant-matrix", "sourceKey": "claude-source-c", "sourceGeneration": "claude-generation-c", "recordOrdinalStart": 10, "scanOrdinal": 2, "continuesFrom": "discriminator-matrix.jsonl"}
+    ],
+    "codex-cli": [
+      {"fixture": "cumulative.jsonl", "kind": "codex-cumulative", "sourceGeneration": "codex-generation-a", "sourceOrder": 10},
+      {"fixture": "resume.jsonl", "kind": "codex-resume", "sourceGeneration": "codex-generation-b", "sourceOrder": 20, "continuesSessionFrom": "cumulative.jsonl"},
+      {"fixture": "reset.jsonl", "kind": "codex-reset", "sourceGeneration": "codex-generation-c", "sourceOrder": 30},
+      {"fixture": "resume-boundaries.jsonl", "kind": "codex-resume-boundaries", "sourceGeneration": "codex-generation-e", "sourceOrder": 40, "continuesSessionsFrom": ["resume.jsonl", "reset.jsonl"]},
+      {"fixture": "stale.jsonl", "kind": "codex-stale", "sourceGeneration": "codex-generation-d", "sourceOrder": 5, "continuesSessionFrom": "resume-boundaries.jsonl"},
+      {"fixture": "metadata-only.jsonl", "kind": "codex-metadata-only", "sourceGeneration": "codex-generation-f", "sourceOrder": 50}
+    ]
+  },
+  "allowedProtocolValues": {
+    "jsonlTypes": ["assistant", "future-event", "session_meta", "turn_context", "event_msg"],
+    "payloadTypes": ["token_count", "future_event"],
+    "roles": ["assistant"],
+    "stopReasons": ["end_turn", "tool_use", null],
+    "eventAgents": ["claude-code", "codex"],
+    "caseFixtures": ["streaming.jsonl", "malformed.jsonl", "pending-inherited-noop.jsonl", "pending-continuation.jsonl", "terminal-duplicate.jsonl", "rejected-continuation.jsonl", "discriminator-matrix.jsonl", "streaming-invariant-matrix.jsonl", "cumulative.jsonl", "resume.jsonl", "reset.jsonl", "resume-boundaries.jsonl", "stale.jsonl", "metadata-only.jsonl"],
+    "caseKinds": ["claude-streaming", "claude-malformed-pending", "claude-pending-inherited-noop", "claude-pending-continuation", "claude-terminal-duplicate", "claude-rejected-continuation", "claude-discriminator-matrix", "claude-streaming-invariant-matrix", "codex-cumulative", "codex-resume", "codex-reset", "codex-resume-boundaries", "codex-stale", "codex-metadata-only"],
+    "claudeCallDiscriminators": ["sourceKey", "sessionId", "requestId", "message.id", "agentId", "isSidechain"],
+    "transitionDecisions": [
+      "first-component-delta",
+      "first-zero-baseline-no-emit",
+      "resumed-session-component-delta",
+      "component-duplicate-no-emit",
+      "component-decrease-rebase-no-emit",
+      "zero-reset-rebase-no-emit",
+      "component-delta",
+      "component-delta-last-usage-missing",
+      "component-delta-last-usage-malformed",
+      "decrease-without-last-rebase-no-emit",
+      "invalid-delta-baseline-unchanged",
+      "invalid-snapshot-baseline-unchanged",
+      "stale-snapshot-no-emit"
+    ],
+    "unknownFieldNames": ["future_usage_detail", "future_field"],
+    "coverageValues": ["complete", "pending", "partial"],
+    "diagnosticCodes": [
+      "malformed-row",
+      "invalid-usage",
+      "claude-call-conflict",
+      "pending-call",
+      "codex-reset-rebase",
+      "codex-last-usage-mismatch",
+      "model-unavailable",
+      "codex-stale-source",
+      "source-discontinuity"
+    ],
+    "intentionalInvalidJsonRow": "{this-is-intentionally-invalid-json",
+    "intentionalInvalidJsonLocations": ["claude-code/malformed.jsonl:1", "codex-cli/cumulative.jsonl:5"],
+    "intentionalNegativeCounters": [
+      {"location": "claude-code/malformed.jsonl:5:$.message.usage.input_tokens", "value": -1}
+    ]
+  },
+  "syntheticValuePolicy": {
+    "timestampPrefix": "2000-01-01T",
+    "sessionIds": ["session-claude-a", "session-claude-b", "session-codex-a", "session-codex-b", "session-codex-c"],
+    "requestIds": ["request-a", "request-b", "request-c", "request-d", "request-e", "request-f", "request-a:request-b", null, ""],
+    "messageIds": ["message-a", "message-b", "message-c", "message-d", "message-e", "message-f", "request-b:message-c"],
+    "agentIds": ["agent-a", "agent-b"],
+    "models": ["claude-synthetic", "claude-synthetic-fallback", "gpt-synthetic-a", "gpt-synthetic-b"],
+    "logicalSources": ["claude-source-a", "claude-source-b", "claude-source-c"],
+    "projectSlugs": ["synthetic-project-a", "synthetic-project-b", "synthetic-project-c"],
+    "sourceGenerations": ["source-generation-a", "source-generation-b", "claude-generation-a", "claude-generation-b", "claude-generation-c", "codex-generation-a", "codex-generation-b", "codex-generation-c", "codex-generation-d", "codex-generation-e", "codex-generation-f"],
+    "modelProvider": "synthetic-provider",
+    "cliVersion": "0.0.0-synthetic",
+    "codexContextOffset": 200000,
+    "intentionalInvalidJsonRows": 2
+  },
+  "sourceCursorContract": {
+    "fields": ["generation", "mtimeMs", "size", "offset", "recordOrdinal"],
+    "offsetPolicy": "last-complete-jsonl-line-byte-boundary",
+    "discontinuityPolicy": "skip-current-generation-and-mark-partial",
+    "scenarios": [
+      {
+        "name": "initial-complete",
+        "previous": null,
+        "observation": {"generation": "source-generation-a", "mtimeMs": 1000, "size": 20, "completeSize": 20, "completeRecords": 2},
+        "expected": {"action": "read", "readStart": 0, "readEnd": 20, "next": {"generation": "source-generation-a", "mtimeMs": 1000, "size": 20, "offset": 20, "recordOrdinal": 2}, "discontinuity": false, "dropSourceState": false, "diagnosticCode": null}
+      },
+      {
+        "name": "append-with-incomplete-tail",
+        "previous": {"generation": "source-generation-a", "mtimeMs": 1000, "size": 20, "offset": 20, "recordOrdinal": 2},
+        "observation": {"generation": "source-generation-a", "mtimeMs": 2000, "size": 35, "completeSize": 30, "completeRecords": 3},
+        "expected": {"action": "read", "readStart": 20, "readEnd": 30, "next": {"generation": "source-generation-a", "mtimeMs": 2000, "size": 35, "offset": 30, "recordOrdinal": 3}, "discontinuity": false, "dropSourceState": false, "diagnosticCode": null}
+      },
+      {
+        "name": "mtime-only-no-op",
+        "previous": {"generation": "source-generation-a", "mtimeMs": 2000, "size": 35, "offset": 30, "recordOrdinal": 3},
+        "observation": {"generation": "source-generation-a", "mtimeMs": 3000, "size": 35, "completeSize": 30, "completeRecords": 3},
+        "expected": {"action": "none", "readStart": 30, "readEnd": 30, "next": {"generation": "source-generation-a", "mtimeMs": 3000, "size": 35, "offset": 30, "recordOrdinal": 3}, "discontinuity": false, "dropSourceState": false, "diagnosticCode": null}
+      },
+      {
+        "name": "record-count-regression",
+        "previous": {"generation": "source-generation-a", "mtimeMs": 3000, "size": 35, "offset": 30, "recordOrdinal": 3},
+        "observation": {"generation": "source-generation-a", "mtimeMs": 3500, "size": 35, "completeSize": 30, "completeRecords": 2},
+        "expected": {"action": "skip", "readStart": null, "readEnd": null, "next": {"generation": "source-generation-a", "mtimeMs": 3500, "size": 35, "offset": 30, "recordOrdinal": 2}, "discontinuity": true, "dropSourceState": true, "diagnosticCode": "source-discontinuity"}
+      },
+      {
+        "name": "in-place-truncation",
+        "previous": {"generation": "source-generation-a", "mtimeMs": 3000, "size": 35, "offset": 30, "recordOrdinal": 3},
+        "observation": {"generation": "source-generation-a", "mtimeMs": 4000, "size": 10, "completeSize": 10, "completeRecords": 1},
+        "expected": {"action": "skip", "readStart": null, "readEnd": null, "next": {"generation": "source-generation-a", "mtimeMs": 4000, "size": 10, "offset": 10, "recordOrdinal": 1}, "discontinuity": true, "dropSourceState": true, "diagnosticCode": "source-discontinuity"}
+      },
+      {
+        "name": "replacement-generation",
+        "previous": {"generation": "source-generation-a", "mtimeMs": 3000, "size": 35, "offset": 30, "recordOrdinal": 3},
+        "observation": {"generation": "source-generation-b", "mtimeMs": 5000, "size": 40, "completeSize": 40, "completeRecords": 4},
+        "expected": {"action": "skip", "readStart": null, "readEnd": null, "next": {"generation": "source-generation-b", "mtimeMs": 5000, "size": 40, "offset": 40, "recordOrdinal": 4}, "discontinuity": true, "dropSourceState": true, "diagnosticCode": "source-discontinuity"}
+      }
+    ]
+  },
+  "storeRecoveryContract": {
+    "schemaVersion": 1,
+    "adapterId": "codex",
+    "batchId": "batch-synthetic-a",
+    "baseCursorRevision": 0,
+    "sourceGenerations": {"store-source-a": "source-generation-a"},
+    "crashPoints": ["before-durable-begin", "after-durable-begin", "after-durable-ready", "after-first-event", "after-all-events", "after-cursor-replace", "after-durable-commit"],
+    "events": [
+      {
+        "identity": {"sourceGeneration": "source-generation-a", "recordOrdinal": 0, "subIndex": 0},
+        "usage": {"ts": "2000-01-01T03:00:00.000Z", "agent": "codex", "model": "gpt-synthetic-a", "sessionId": "session-codex-a", "inputTokens": 8, "outputTokens": 2, "cacheReadTokens": 3, "cacheWriteTokens": 0}
+      },
+      {
+        "identity": {"sourceGeneration": "source-generation-a", "recordOrdinal": 1, "subIndex": 0},
+        "usage": {"ts": "2000-01-01T03:00:00.000Z", "agent": "codex", "model": "gpt-synthetic-a", "sessionId": "session-codex-a", "inputTokens": 8, "outputTokens": 2, "cacheReadTokens": 3, "cacheWriteTokens": 0}
+      }
+    ],
+    "nextCursor": {
+      "schemaVersion": 1,
+      "sources": {"store-source-a": {"generation": "source-generation-a", "mtimeMs": 6000, "size": 20, "offset": 20, "recordOrdinal": 2}},
+      "claudeCalls": {},
+      "codexSessions": {},
+      "diagnosticTotals": {},
+      "coverageTotals": {"skippedRecords": 0, "rebasedTransitions": 0, "sourceDiscontinuities": 0, "modelUnavailableEvents": 0}
+    },
+    "expected": {
+      "eventCount": 2,
+      "cursorRevision": 1,
+      "commitCount": 1,
+      "lastCommittedBatch": {"adapterId": "codex", "batchId": "batch-synthetic-a", "baseCursorRevision": 0, "committedCursorRevision": 1},
+      "preRecoveryStates": {
+        "before-durable-begin": {"walPhase": null, "durableEventCount": 0, "cursorRevision": 0, "lastCommittedBatch": null, "commitCount": 0},
+        "after-durable-begin": {"walPhase": "begin", "durableEventCount": 0, "cursorRevision": 0, "lastCommittedBatch": null, "commitCount": 0},
+        "after-durable-ready": {"walPhase": "ready", "durableEventCount": 0, "cursorRevision": 0, "lastCommittedBatch": null, "commitCount": 0},
+        "after-first-event": {"walPhase": "ready", "durableEventCount": 1, "cursorRevision": 0, "lastCommittedBatch": null, "commitCount": 0},
+        "after-all-events": {"walPhase": "ready", "durableEventCount": 2, "cursorRevision": 0, "lastCommittedBatch": null, "commitCount": 0},
+        "after-cursor-replace": {"walPhase": "ready", "durableEventCount": 2, "cursorRevision": 1, "lastCommittedBatch": {"adapterId": "codex", "batchId": "batch-synthetic-a", "baseCursorRevision": 0, "committedCursorRevision": 1}, "commitCount": 0},
+        "after-durable-commit": {"walPhase": null, "durableEventCount": 2, "cursorRevision": 1, "lastCommittedBatch": {"adapterId": "codex", "batchId": "batch-synthetic-a", "baseCursorRevision": 0, "committedCursorRevision": 1}, "commitCount": 1}
+      }
+    }
+  },
+  "intentionalInvalidCases": [
+    "one invalid JSON row per agent",
+    "one negative Claude counter",
+    "one Claude call with conflicting model/cache revisions",
+    "five Claude streaming pairs that each violate exactly one fixed invariant",
+    "one Claude call without a terminal snapshot",
+    "one same-source inherited pending scan without a current affected record",
+    "one emitted Claude terminal repeated in the next scan",
+    "one rejected Claude call continued in the next scan",
+    "one identical Claude row-side call tuple in two logical sources",
+    "one valid Codex snapshot whose delta violates cache subset",
+    "one valid Codex changed snapshot whose last usage evidence mismatches the cumulative delta",
+    "one valid Codex changed snapshot without last usage evidence",
+    "one valid Codex changed snapshot with malformed last usage evidence",
+    "resume-first missing and malformed last usage evidence for two persisted sessions",
+    "one metadata-only Codex session with a null baseline",
+    "one Codex snapshot whose reasoning exceeds output",
+    "Codex component-decrease rows that rebase without emission",
+    "one stale Codex source replayed behind the persisted session frontier",
+    "one same-generation record-count-only source regression",
+    "Claude delimiter and null-like discriminator pairs that collide under string joining",
+    "seven durable store crash points with exact pre-recovery states and identity-based convergence",
+    "eventful and zero-event direct-ready WAL recovery plus fail-before-write corruption rejection",
+    "malformed loaded durable events, begin WALs, and committed markers with exact unchanged-state rejection",
+    "object-order-independent applied cursors and multi-source reservation recovery",
+    "one applied cursor whose schema-valid non-null Codex baseline tuple is reordered",
+    "statement, ASI, binary, and construct regex contexts with division pass boundaries",
+    "flag-aware parity-preserving regex dot decoding and direct JavaScript payload property forms",
+    "async LineTerminator, optional catch, for-await, and export-default declaration or expression boundaries",
+    "static object-binding payload properties with computed, rest, target-name, suffix, label, and class-member pass boundaries"
+  ],
+  "forbiddenData": [
+    "prompt or message content",
+    "tool arguments or results",
+    "local or absolute paths",
+    "repository or remote identifiers",
+    "UUID, ULID, hashes, or high-entropy IDs",
+    "URL, email, account, organization, hostname, or IP address",
+    "credential, cookie, authorization value, or private key",
+    "raw error or command output",
+    "original timestamps"
+  ],
+  "compactPolicy": "Compact structure is unverified. No provider invocation, private source inspection, shape assertion, or heuristic inference is permitted; v1 reports context-limit state only.",
+  "reviewPolicy": "Privacy review and semantic arithmetic review are independent gates."
+}

@@ -1,0 +1,2 @@
+{"timestamp":"2000-01-01T02:20:00.000Z","type":"session_meta","payload":{"id":"session-codex-c","cli_version":"0.0.0-synthetic","model_provider":"synthetic-provider"}}
+{"timestamp":"2000-01-01T02:20:01.000Z","type":"turn_context","payload":{"model":"gpt-synthetic-a"}}

@@ -1,0 +1,3 @@
+{"timestamp":"2000-01-01T01:05:00.000Z","type":"session_meta","payload":{"id":"session-codex-a","cli_version":"0.0.0-synthetic","model_provider":"synthetic-provider"}}
+{"timestamp":"2000-01-01T01:05:01.000Z","type":"turn_context","payload":{"model":"gpt-synthetic-a"}}
+{"timestamp":"2000-01-01T01:05:02.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":999,"cached_input_tokens":111,"output_tokens":99,"reasoning_output_tokens":33,"total_tokens":1098},"last_token_usage":{"input_tokens":699,"cached_input_tokens":1,"output_tokens":39,"reasoning_output_tokens":6,"total_tokens":738}}}}
