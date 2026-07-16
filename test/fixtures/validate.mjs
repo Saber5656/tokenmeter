@@ -409,6 +409,14 @@ function safeCounter(value) {
   return Number.isSafeInteger(value) && value >= 0;
 }
 
+function validCodexBaseline(value) {
+  return Array.isArray(value)
+    && value.length === 4
+    && value.every(safeCounter)
+    && value[1] <= value[0]
+    && value[3] <= value[2];
+}
+
 function timestampIsSynthetic(value) {
   if (typeof value !== 'string' || !value.startsWith(policy.timestampPrefix)) return false;
   const parsed = new Date(value);
@@ -627,8 +635,7 @@ function validateCursorEvidence(value, isClaude, label, errors) {
   for (const [sessionId, session] of Object.entries(value.sessions)) {
     validateEnum(sessionId, policy.sessionIds, `${label}:session`, errors);
     if (!exactKeys(session, ['baseline', 'latestModel', 'frontier'], [], `${label}:${sessionId}`, errors)) continue;
-    if (session.baseline !== null
-      && (!Array.isArray(session.baseline) || session.baseline.length !== 4 || session.baseline.some((counter) => !safeCounter(counter)))) {
+    if (session.baseline !== null && !validCodexBaseline(session.baseline)) {
       errors.push(`${label}:${sessionId}:baseline`);
     }
     if (session.latestModel !== null) validateEnum(session.latestModel, policy.models, `${label}:${sessionId}:model`, errors);
@@ -652,10 +659,7 @@ function validateClaudeState(value, label, errors) {
 function validateCodexState(value, label, errors) {
   if (!exactKeys(value, expectedFields.codexState, [], label, errors)) return;
   if (typeof value.sessionKnownAtFirstMetadata !== 'boolean') errors.push(`${label}:session-known:schema-type`);
-  if (value.baselineAtFirstMetadata !== null
-    && (!Array.isArray(value.baselineAtFirstMetadata)
-      || value.baselineAtFirstMetadata.length !== 4
-      || value.baselineAtFirstMetadata.some((counter) => !safeCounter(counter)))) {
+  if (value.baselineAtFirstMetadata !== null && !validCodexBaseline(value.baselineAtFirstMetadata)) {
     errors.push(`${label}:baseline:schema-array`);
   }
   if (value.modelAtFirstMetadata !== null && !policy.models.includes(value.modelAtFirstMetadata)) {
@@ -701,7 +705,7 @@ function validateExpectedDocument(value, relative, errors) {
       validateIgnored(testCase.ignored, expectedFields.codexIgnored, `${label}:ignored`, errors);
       if (!Array.isArray(testCase.componentDeltas)) errors.push(`${label}:component-deltas:schema-array`);
       else for (const tuple of testCase.componentDeltas) {
-        if (!Array.isArray(tuple) || tuple.length !== 4 || tuple.some((counter) => !safeCounter(counter)) || tuple[1] > tuple[0] || tuple[3] > tuple[2]) {
+        if (!validCodexBaseline(tuple)) {
           errors.push(`${label}:component-deltas:schema-tuple`);
         }
       }
@@ -832,8 +836,7 @@ function codexTuple(usage) {
   const keys = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens'];
   if (!usage || !keys.every((key) => safeCounter(usage[key]))) return null;
   const tuple = keys.map((key) => usage[key]);
-  if (tuple[1] > tuple[0] || tuple[3] > tuple[2]) return null;
-  return tuple;
+  return validCodexBaseline(tuple) ? tuple : null;
 }
 
 const CLAUDE_CALL_FIELDS = ['sessionId', 'requestId', 'message.id', 'agentId', 'isSidechain'];
@@ -1016,8 +1019,7 @@ function assertPublicCursor(cursor) {
   for (const [sessionId, state] of Object.entries(cursor.codexSessions)) {
     if (sessionId.length === 0) throw new Error('Codex session key invalid');
     assertExactObject(state, ['baseline', 'latestModel', 'frontier'], 'Codex session state');
-    if (state.baseline !== null
-      && (!Array.isArray(state.baseline) || state.baseline.length !== 4 || state.baseline.some((counter) => !safeCounter(counter)))) {
+    if (state.baseline !== null && !validCodexBaseline(state.baseline)) {
       throw new Error('Codex session baseline invalid');
     }
     assertNullableString(state.latestModel, 'Codex session model');
@@ -1706,11 +1708,17 @@ function validatePublicCursorContract() {
   assertEqual(errors, [], 'nullable Codex cursor evidence');
   assertEqual(projection.sessions['session-codex-c'], { baseline: null, latestModel: null, frontier: null }, 'nullable Codex cursor projection');
 
+  const validBaseline = { baseline: [4, 4, 3, 3], latestModel: null, frontier: null };
+  cursor.codexSessions['session-codex-b'] = validBaseline;
+  assertEqual(roundTripCursor(cursor).codexSessions['session-codex-b'], validBaseline, 'valid Codex baseline projection');
+
   const invalid = (mutate) => {
     const clone = JSON.parse(JSON.stringify(cursor));
     mutate(clone);
     return clone;
   };
+  expectCursorRejection(invalid((clone) => { clone.codexSessions['session-codex-c'].baseline = [3, 4, 2, 1]; }), 'cursor rejects cached baseline overflow');
+  expectCursorRejection(invalid((clone) => { clone.codexSessions['session-codex-c'].baseline = [3, 1, 2, 3]; }), 'cursor rejects reasoning baseline overflow');
   expectCursorRejection(invalid((clone) => { clone.hidden = {}; }), 'cursor rejects hidden root state');
   expectCursorRejection(invalid((clone) => { clone.sources['claude-source-a'].hidden = 1; }), 'cursor rejects hidden source state');
   expectCursorRejection(invalid((clone) => { delete clone.sources['claude-source-a'].offset; }), 'cursor rejects missing source state');
