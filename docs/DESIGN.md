@@ -209,7 +209,7 @@ interface EventIdentity {
 
 interface ScannedUsageEvent {
   identity: EventIdentity;
-  usage: UsageEvent;
+  usage: Omit<UsageEvent, 'costUsd'> & { costUsd?: never };
 }
 ```
 
@@ -241,6 +241,8 @@ interface UsageEvent {
 ```
 
 `UsageEvent` は値オブジェクトであり、payload equality は identity ではない。adapter namespace と `EventIdentity` の組だけを保存上の冪等keyとする。同じ正規化値でも別 source generation/record から観測した2件は別eventとして保存し、同じ identity の crash replay だけを dedupe する。identity は payload/content hash、raw row、絶対パスから生成せず、UI と料金集計には露出させない。
+
+`costUsd` は pricing/query 層が表示・集計時に派生する値であり、adapter が生成する `ScannedUsageEvent`、append-only store、WAL、replay event には保存しない。価格表の更新周期と永続usageの更新周期を分離し、保存済みeventへ古い価格を固定しないため、`ScannedUsageEvent.usage` では `costUsd` を型レベルでも禁止する。
 
 4カテゴリは非重複とし、表示・合計・料金計算では次だけを足す。
 
