@@ -37,7 +37,7 @@ type DocumentedEventIdentity = {
 
 type DocumentedScannedUsageEvent = {
   identity: EventIdentity;
-  usage: UsageEvent;
+  usage: Omit<UsageEvent, "costUsd"> & { costUsd?: never };
 };
 
 type _UsageEventIsExact = Assert<Equal<UsageEvent, DocumentedUsageEvent>>;
@@ -154,8 +154,31 @@ const _unknownField = {
   normalizedModel: "normalized-model",
 } satisfies UsageEvent;
 
+const pricedUsage: UsageEvent = {
+  ts: "2026-07-16T00:00:00.000Z",
+  agent: "codex",
+  model: "synthetic-model",
+  sessionId: "synthetic-session",
+  inputTokens: 10,
+  outputTokens: 4,
+  cacheReadTokens: 3,
+  cacheWriteTokens: 0,
+  costUsd: 0.000_123,
+};
+
+const _pricedScannedEvent = {
+  identity: {
+    sourceGeneration: "synthetic-generation",
+    recordOrdinal: 8,
+    subIndex: 0,
+  },
+  // @ts-expect-error pricing is derived after persistence, never scanned or stored.
+  usage: pricedUsage,
+} satisfies ScannedUsageEvent;
+
 void _missingRequiredField;
 void _unknownField;
+void _pricedScannedEvent;
 void (null as unknown as _UsageEventIsExact);
 void (null as unknown as _EventIdentityIsExact);
 void (null as unknown as _ScannedUsageEventIsExact);

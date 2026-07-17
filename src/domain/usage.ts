@@ -19,8 +19,8 @@ export interface EventIdentity {
   subIndex: number;
 }
 
-/** A usage value paired with its adapter-scoped storage identity. */
+/** An unpriced usage value paired with its adapter-scoped storage identity. */
 export interface ScannedUsageEvent {
   identity: EventIdentity;
-  usage: UsageEvent;
+  usage: Omit<UsageEvent, "costUsd"> & { costUsd?: never };
 }
