@@ -84,7 +84,7 @@ tokenmeter は、ローカルで動く AI コーディングエージェント�
 
 | 層 | 技術 | 理由 |
 |---|---|---|
-| 言語 | TypeScript 5.x / Node.js >=22.14.0 | `package.json` の `engines` と一致。CI は下限 22.14.0 と 24.x で検証 |
+| 言語 | TypeScript 5.x / Node.js >=22.14.0 | `package.json` の `engines` と一致。CI はセキュリティ修正版 22.23.4 と 24.22.1 で検証 |
 | CLI | commander | 枯れていて十分 |
 | TUI（hp/viz） | ANSI 直書き + log-update 系の最小構成 | Ink(React) は viz で検討。hp はフレームワーク不要の軽さを優先 |
 | テスト | vitest + synthetic protocol fixture | adapter は fixture ベースで回帰を防ぐ |
